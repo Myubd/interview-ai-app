@@ -1,0 +1,15 @@
+streamlit>=1.32,<2.0
+ollama>=0.3,<1.0
+numpy>=1.26,<3.0
+pypdf>=4.0,<6.0
+
+# 履歴書・企業情報を「画像（PNG/JPG）」としてアップロードする機能
+# （rag.py: extract_text_from_image）で使用。未インストールでもアプリ自体は
+# 起動するが、画像からのテキスト抽出は失敗扱い（空文字）になり、サイドバーに
+# 警告が表示される。
+# Tesseract OCR本体（Tesseractエンジン）は別途OS側でのインストールが必要。
+# 日本語認識には言語データ「jpn」も追加で入れること（例: Ubuntu/Debianなら
+# `sudo apt-get install tesseract-ocr tesseract-ocr-jpn`、
+# macOSなら `brew install tesseract tesseract-lang`）。
+pytesseract>=0.3.10,<1.0
+Pillow>=10.0,<12.0
