@@ -60,7 +60,14 @@
 
 ---
 
-## アーキテクチャ
+## システムアーキテクチャ
+
+<p align="center">
+  <img src="screenshots/architecture.svg" width="900">
+</p>
+
+<details>
+<summary>Mermaidソースを表示</summary>
 
 ```mermaid
 flowchart TD
