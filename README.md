@@ -122,6 +122,7 @@ flowchart TD
     IE & MIE & PRG & QP & CM & PA & SG --> SQLite
     P7 --> SQLite
 ```
+</details>
 
 ---
 
