@@ -12,7 +12,6 @@ import os
 import subprocess
 import sys
 import tempfile
-import threading
 
 import requests
 import streamlit as st
@@ -50,29 +49,6 @@ def _fetch_latest() -> tuple[str, str] | None:
     return None
 
 
-def _download_and_install(url: str) -> None:
-    """インストーラーをダウンロードして起動し、アプリを終了する。"""
-    try:
-        st.session_state["_update_status"] = "downloading"
-        res = requests.get(url, stream=True, timeout=120)
-        res.raise_for_status()
-
-        tmp = tempfile.NamedTemporaryFile(
-            suffix=".exe", delete=False, prefix="InterviewAppSetup_"
-        )
-        for chunk in res.iter_content(chunk_size=8192):
-            tmp.write(chunk)
-        tmp.close()
-
-        st.session_state["_update_status"] = "ready"
-        subprocess.Popen([tmp.name], close_fds=True)
-        os._exit(0)
-
-    except Exception as e:
-        logger.error(f"[updater] ダウンロード失敗: {e}")
-        st.session_state["_update_status"] = "error"
-
-
 def check_and_update() -> None:
     """
     app.py の init_db() 直後に呼び出す。
@@ -100,13 +76,22 @@ def check_and_update() -> None:
 
     # 新バージョンあり → ダウンロード開始
     logger.info(f"[updater] 新バージョン検出: {current} → {latest}")
-    st.session_state.setdefault("_update_status", "starting")
 
     with st.spinner(f"新バージョン {latest_tag} をダウンロード中..."):
-        t = threading.Thread(target=_download_and_install, args=(installer_url,), daemon=True)
-        t.start()
-        t.join(timeout=120)
+        try:
+            res = requests.get(installer_url, stream=True, timeout=120)
+            res.raise_for_status()
 
-    status = st.session_state.get("_update_status", "error")
-    if status == "error":
-        st.warning("アップデートのダウンロードに失敗しました。手動で更新してください。")
+            tmp = tempfile.NamedTemporaryFile(
+                suffix=".exe", delete=False, prefix="InterviewAppSetup_"
+            )
+            for chunk in res.iter_content(chunk_size=8192):
+                tmp.write(chunk)
+            tmp.close()
+
+            subprocess.Popen([tmp.name], close_fds=True)
+            os._exit(0)
+
+        except Exception as e:
+            logger.error(f"[updater] ダウンロード失敗: {e}")
+            st.warning("アップデートのダウンロードに失敗しました。手動で更新してください。")
