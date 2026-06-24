@@ -25,6 +25,7 @@ from rag import (
     save_resume, save_company_document, load_active_documents,
     get_or_create_knowledge_base, list_knowledge_bases, RESUME_KB_NAME,
 )
+from utils import APP_VERSION
 
 DEFAULT_CHAT_MODEL = "qwen3:8b"
 DEFAULT_EMBED_MODEL = "nomic-embed-text"
@@ -36,6 +37,7 @@ def render_sidebar() -> str:
     ナビゲーションのクリックは st.session_state.app_mode を直接書き換える。
     """
     with st.sidebar:
+        st.caption(f"ver {APP_VERSION}")
         _render_warning_banner()
         _render_navigation()
         st.write("---")
