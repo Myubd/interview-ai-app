@@ -38,7 +38,7 @@ jobs:
         run: pyinstaller launch.spec
 
       - name: Install Inno Setup
-        run: choco install innosetup --version=7.0.1 -y
+        run: choco install innosetup -y
 
       - name: Build Installer
         run: |
