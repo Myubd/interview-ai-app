@@ -23,7 +23,7 @@ jobs:
       - name: Get version info
         id: version
         run: |
-          $tag = "${GITHUB_REF_NAME}"
+          $tag = "${{ github.ref_name }}"
           $ver = $tag -replace '^v', ''
           $hash = git rev-parse --short HEAD
           echo "TAG=$tag" >> $env:GITHUB_OUTPUT
@@ -42,7 +42,12 @@ jobs:
 
       - name: Build Installer
         run: |
-          & "C:\Program Files (x86)\Inno Setup 7\ISCC.exe" InterviewAppSetup.iss /DAPP_VERSION=${{ steps.version.outputs.VERSION }}
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 6\ISCC.exe" }
+          if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files (x86)\Inno Setup 7\ISCC.exe" }
+          if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 7\ISCC.exe" }
+          if (-not (Test-Path $iscc)) { throw "Inno Setup not found" }
+          & $iscc InterviewAppSetup.iss /DAPP_VERSION=${{ steps.version.outputs.VERSION }}
 
       - name: Generate Changelog
         run: |
