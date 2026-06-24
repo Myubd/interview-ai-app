@@ -34,6 +34,7 @@ a = Analysis(
     binaries=st_binaries,
     datas=st_datas + datas_meta + [
         ('version.txt', '.'),
+        ('updater.py', '.'),
         # ルートのPythonファイル
         ('app.py', '.'),
         ('rag.py', '.'),
@@ -62,6 +63,7 @@ a = Analysis(
         # ルートモジュール
         'streamlit',
         'ollama',
+        'updater',
         'rag',
         'interview_engine',
         'mock_interview_engine',
