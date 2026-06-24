@@ -39,9 +39,33 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
+import sys
 import time
 from typing import Any
+
+
+# ============================================================
+# 0. バージョン管理
+# ============================================================
+
+def get_version() -> str:
+    """実行環境に応じてバージョンを返す。
+
+    - EXE実行時: _MEIPASSのversion.txtを読む
+    - 開発時:    プロジェクトルートのversion.txtを読む
+    - どちらもなければ: "dev" を返す
+    """
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    path = os.path.join(base, "version.txt")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        return "dev"
+
+APP_VERSION: str = get_version()  # 例: "1.2.3+abc1234"
 
 import ollama
 

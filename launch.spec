@@ -33,6 +33,7 @@ a = Analysis(
     pathex=[],
     binaries=st_binaries,
     datas=st_datas + datas_meta + [
+        ('version.txt', '.'),
         # ルートのPythonファイル
         ('app.py', '.'),
         ('rag.py', '.'),
