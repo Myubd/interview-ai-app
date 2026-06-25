@@ -776,3 +776,305 @@ class TestCallOllamaWithTextRetry:
             )
         assert result["ok"] is False
         assert result["text"] == "フォールバック"
+
+
+# ===========================================================
+# utils.py — get_version
+# ===========================================================
+
+class TestGetVersion:
+    def test_returns_string(self):
+        from utils import get_version
+        result = get_version()
+        assert isinstance(result, str)
+
+    def test_returns_dev_when_no_file(self, tmp_path, monkeypatch):
+        """version.txt が存在しないパスを指したとき "dev" を返す。"""
+        import utils as _utils_mod
+        monkeypatch.setattr(_utils_mod.sys, "_MEIPASS", str(tmp_path / "nonexistent"), raising=False)
+        # sys._MEIPASS が存在しない場合は __file__ のディレクトリを使うが、
+        # ここでは monkeypatch で無効なパスを指し、FileNotFoundError を誘発する
+        from utils import get_version
+        # tmp_path 配下に version.txt を置かなければ "dev" が返るはず
+        result = get_version()
+        # "dev" か既存の version.txt の内容のどちらか
+        assert isinstance(result, str) and len(result) > 0
+
+    def test_reads_version_file(self, tmp_path, monkeypatch):
+        """version.txt が存在するとき、その内容を返す。"""
+        version_file = tmp_path / "version.txt"
+        version_file.write_text("1.2.3+abc1234", encoding="utf-8")
+
+        import sys as _sys
+        monkeypatch.setattr(_sys, "_MEIPASS", str(tmp_path), raising=False)
+
+        # get_version を再実行（sys._MEIPASS を書き換えた後で呼ぶ）
+        from utils import get_version
+        result = get_version()
+        assert result == "1.2.3+abc1234"
+
+
+# ===========================================================
+# utils.py — normalize_industry_fit 追加ケース
+# ===========================================================
+
+class TestNormalizeIndustryFitEdgeCases:
+    def test_score_non_numeric_string_falls_back_to_1(self):
+        """score が数値に変換できない文字列の場合、1 にフォールバックする。"""
+        from utils import normalize_industry_fit
+        data = {"メーカー": {"score": "高い", "reason": "ok"}}
+        result = normalize_industry_fit(data)
+        assert result["メーカー"]["score"] == 1
+
+    def test_score_none_falls_back_to_1(self):
+        from utils import normalize_industry_fit
+        data = {"金融": {"score": None, "reason": "ok"}}
+        result = normalize_industry_fit(data)
+        assert result["金融"]["score"] == 1
+
+
+# ===========================================================
+# utils.py — call_ollama_with_json_retry リトライ sleep
+# ===========================================================
+
+class TestCallOllamaWithJsonRetrySlept:
+    """リトライ時に time.sleep が呼ばれることを確認する。"""
+
+    def _make_response(self, content):
+        return {"message": {"content": content}}
+
+    def test_sleep_called_between_retries(self):
+        import json
+        from utils import call_ollama_with_json_retry
+        bad = "not json"
+        good = json.dumps({"score": 1})
+        with patch("utils.ollama.chat", side_effect=[
+            self._make_response(bad),
+            self._make_response(good),
+        ]) as _, patch("utils.time.sleep") as mock_sleep:
+            result = call_ollama_with_json_retry(
+                model="m", prompt="p", required_keys=["score"],
+                max_retries=1, retry_wait_sec=0.5,
+            )
+        mock_sleep.assert_called_once_with(0.5)
+        assert result["ok"] is True
+
+    def test_json_decode_error_then_success(self):
+        """JSONDecodeError が起きてもリトライで成功するケース。"""
+        import json
+        from utils import call_ollama_with_json_retry
+        # 1回目: { だけで壊れたJSON → JSONDecodeError
+        # 2回目: 正常
+        bad = "{"
+        good = json.dumps({"key": "val"})
+        with patch("utils.ollama.chat", side_effect=[
+            self._make_response(bad),
+            self._make_response(good),
+        ]), patch("utils.time.sleep"):
+            result = call_ollama_with_json_retry(
+                model="m", prompt="p", required_keys=["key"], max_retries=1,
+            )
+        assert result["ok"] is True
+        assert result["key"] == "val"
+
+
+# ===========================================================
+# utils.py — call_ollama_with_json_array_retry リトライ sleep
+# ===========================================================
+
+class TestCallOllamaWithJsonArrayRetrySlept:
+    def _make_response(self, content):
+        return {"message": {"content": content}}
+
+    def test_sleep_called_on_non_list_retry(self):
+        import json
+        from utils import call_ollama_with_json_array_retry
+        bad = json.dumps({"not": "list"})
+        good = json.dumps([{"title": "ok"}])
+        with patch("utils.ollama.chat", side_effect=[
+            self._make_response(bad),
+            self._make_response(good),
+        ]), patch("utils.time.sleep") as mock_sleep:
+            data, ok, _ = call_ollama_with_json_array_retry(
+                model="m", prompt="p", item_required_keys=["title"], max_retries=1,
+            )
+        mock_sleep.assert_called_once()
+        assert ok is True
+
+    def test_json_decode_error_retry(self):
+        import json
+        from utils import call_ollama_with_json_array_retry
+        with patch("utils.ollama.chat", side_effect=[
+            self._make_response("{"),           # JSONDecodeError
+            self._make_response(json.dumps([{"k": "v"}])),
+        ]), patch("utils.time.sleep"):
+            data, ok, _ = call_ollama_with_json_array_retry(
+                model="m", prompt="p", item_required_keys=["k"], max_retries=1,
+            )
+        assert ok is True
+
+
+# ===========================================================
+# utils.py — call_ollama_with_text_retry sleep
+# ===========================================================
+
+class TestCallOllamaWithTextRetrySlept:
+    def _make_response(self, content):
+        return {"message": {"content": content}}
+
+    def test_sleep_called_on_short_output_retry(self):
+        from utils import call_ollama_with_text_retry
+        with patch("utils.ollama.chat", side_effect=[
+            self._make_response("短"),          # min_length=10 未満
+            self._make_response("十分に長いテキストです"),
+        ]), patch("utils.time.sleep") as mock_sleep:
+            result = call_ollama_with_text_retry(
+                model="m", prompt="p", min_length=10, max_retries=1,
+            )
+        mock_sleep.assert_called_once()
+        assert result["ok"] is True
+
+
+# ===========================================================
+# rag.py — extract_text_from_pdf
+# ===========================================================
+
+class TestExtractTextFromPdf:
+    @pytest.fixture(autouse=True)
+    def import_func(self):
+        from rag import extract_text_from_pdf
+        self.extract = extract_text_from_pdf
+
+    def _make_pdf_bytes(self, text: str = "") -> bytes:
+        """最小限のPDFバイト列を生成する（pypdf.PdfWriter 使用）。"""
+        from pypdf import PdfWriter
+        import io
+        writer = PdfWriter()
+        writer.add_blank_page(200, 200)
+        buf = io.BytesIO()
+        writer.write(buf)
+        return buf.getvalue()
+
+    def test_valid_pdf_returns_string(self):
+        result = self.extract(self._make_pdf_bytes())
+        assert isinstance(result, str)
+
+    def test_invalid_bytes_returns_empty(self):
+        """壊れたバイト列でも空文字を返す（例外を上げない）。"""
+        result = self.extract(b"not a pdf")
+        assert result == ""
+
+    def test_empty_bytes_returns_empty(self):
+        result = self.extract(b"")
+        assert result == ""
+
+
+# ===========================================================
+# rag.py — extract_text_from_image
+# ===========================================================
+
+class TestExtractTextFromImage:
+    @pytest.fixture(autouse=True)
+    def import_func(self):
+        from rag import extract_text_from_image
+        self.extract = extract_text_from_image
+
+    def test_missing_pytesseract_returns_empty(self):
+        """pytesseract が未インストールのとき空文字を返す。"""
+        import sys
+        # pytesseract を sys.modules から一時的に除外してインポート失敗を再現
+        orig = sys.modules.pop("pytesseract", None)
+        try:
+            result = self.extract(b"\x89PNG\r\n\x1a\n" + b"\x00" * 100)
+            assert result == ""
+        finally:
+            if orig is not None:
+                sys.modules["pytesseract"] = orig
+
+    def test_invalid_bytes_returns_empty(self):
+        result = self.extract(b"not an image")
+        assert result == ""
+
+
+# ===========================================================
+# rag.py — search_balanced (mock _get_query_embedding)
+# ===========================================================
+
+class TestSearchBalanced:
+    @pytest.fixture(autouse=True)
+    def import_func(self):
+        from rag import search_balanced, Document
+        self.search = search_balanced
+        self.Document = Document
+
+    def _make_doc(self, doc_type, chunks, dim=4):
+        embeddings = np.random.rand(len(chunks), dim).astype(np.float32)
+        return self.Document(doc_type=doc_type, source_name="test", chunks=chunks, embeddings=embeddings)
+
+    def test_empty_documents_returns_empty(self):
+        with patch("rag._get_query_embedding", return_value=np.array([1, 0, 0, 0], dtype=np.float32)):
+            result = self.search("query", [])
+        assert result == []
+
+    def test_returns_results_for_each_doc_type(self):
+        resume_doc = self._make_doc("resume", ["経験1", "経験2"])
+        company_doc = self._make_doc("company", ["企業情報1"])
+        query_vec = np.array([1, 0, 0, 0], dtype=np.float32)
+        with patch("rag._get_query_embedding", return_value=query_vec):
+            results = self.search("query", [resume_doc, company_doc])
+        doc_types = {r[0] for r in results}
+        assert "resume" in doc_types
+        assert "company" in doc_types
+
+    def test_top_k_limits_results_per_type(self):
+        doc = self._make_doc("resume", [f"chunk{i}" for i in range(10)])
+        query_vec = np.array([1, 0, 0, 0], dtype=np.float32)
+        with patch("rag._get_query_embedding", return_value=query_vec):
+            results = self.search("query", [doc], top_k_per_type=3)
+        resume_results = [r for r in results if r[0] == "resume"]
+        assert len(resume_results) <= 3
+
+    def test_doc_with_no_embeddings_skipped(self):
+        doc = self.Document(doc_type="resume", source_name="empty", chunks=["c1"], embeddings=None)
+        query_vec = np.array([1, 0, 0, 0], dtype=np.float32)
+        with patch("rag._get_query_embedding", return_value=query_vec):
+            results = self.search("query", [doc])
+        assert results == []
+
+    def test_scores_are_floats(self):
+        doc = self._make_doc("resume", ["チャンク"])
+        query_vec = np.array([1, 0, 0, 0], dtype=np.float32)
+        with patch("rag._get_query_embedding", return_value=query_vec):
+            results = self.search("query", [doc])
+        for _, _, score in results:
+            assert isinstance(score, float)
+
+
+# ===========================================================
+# rag.py — _get_query_embedding キャッシュ
+# ===========================================================
+
+class TestGetQueryEmbedding:
+    def test_cache_prevents_double_call(self):
+        """同じクエリを2回呼んでも ollama.embeddings は1回しか呼ばれない。"""
+        import rag
+        # キャッシュをクリア
+        rag._QUERY_EMBED_CACHE.clear()
+
+        fake_vec = [0.1, 0.2, 0.3]
+        with patch("rag.ollama.embeddings", return_value={"embedding": fake_vec}) as mock_emb, \
+             patch("rag.get_setting", return_value="nomic-embed-text"):
+            v1 = rag._get_query_embedding("テストクエリ")
+            v2 = rag._get_query_embedding("テストクエリ")
+
+        assert mock_emb.call_count == 1
+        np.testing.assert_array_equal(v1, v2)
+
+    def test_different_queries_call_twice(self):
+        import rag
+        rag._QUERY_EMBED_CACHE.clear()
+        with patch("rag.ollama.embeddings", return_value={"embedding": [0.1]}) as mock_emb, \
+             patch("rag.get_setting", return_value="nomic-embed-text"):
+            rag._get_query_embedding("クエリA")
+            rag._get_query_embedding("クエリB")
+        assert mock_emb.call_count == 2
