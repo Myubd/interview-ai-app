@@ -97,7 +97,85 @@ st.markdown(
             font-size: 13px !important;
         }
     }
+
+    /* 3. 接続エラーオーバーレイ（JS で動的に追加される） */
+    #custom-connection-error {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        background: rgba(15, 15, 15, 0.82);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        align-items: center;
+        justify-content: center;
+    }
+    #custom-connection-error.visible {
+        display: flex;
+    }
+    #custom-connection-error .box {
+        background: #1e1e2e;
+        border: 1px solid #3a3a5c;
+        border-radius: 16px;
+        padding: 40px 48px;
+        max-width: 420px;
+        width: 90%;
+        text-align: center;
+        box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+        color: #e0e0f0;
+        font-family: sans-serif;
+    }
+    #custom-connection-error .icon { font-size: 48px; margin-bottom: 16px; }
+    #custom-connection-error h2 {
+        font-size: 20px; font-weight: 600; margin: 0 0 12px; color: #ffffff;
+    }
+    #custom-connection-error p {
+        font-size: 14px; line-height: 1.7; color: #a0a0c0; margin: 0 0 28px;
+    }
+    #custom-connection-error .reload-btn {
+        display: inline-block; background: #5b5bd6; color: #fff;
+        border: none; border-radius: 8px; padding: 12px 32px;
+        font-size: 15px; font-weight: 600; cursor: pointer;
+        text-decoration: none; transition: background 0.2s;
+    }
+    #custom-connection-error .reload-btn:hover { background: #4747c2; }
     </style>
+
+    <!-- 接続エラー表示オーバーレイ -->
+    <div id="custom-connection-error">
+        <div class="box">
+            <div class="icon">🔌</div>
+            <h2>アプリへの接続が切れました</h2>
+            <p>
+                アプリが停止しているか、通信が途切れた可能性があります。<br>
+                アプリを再起動してからページを再読み込みしてください。
+            </p>
+            <button class="reload-btn" onclick="location.reload()">ページを再読み込み</button>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        // Streamlit の英語エラーダイアログを検知して日本語オーバーレイに差し替える
+        const overlay = document.getElementById('custom-connection-error');
+        const observer = new MutationObserver(() => {
+            const dialogs = document.querySelectorAll('[role="dialog"]');
+            let found = false;
+            dialogs.forEach(dialog => {
+                if (dialog.innerText && dialog.innerText.includes('Connection error')) {
+                    dialog.style.display = 'none';
+                    found = true;
+                }
+            });
+            if (found) {
+                overlay.classList.add('visible');
+            } else if (overlay.classList.contains('visible')) {
+                overlay.classList.remove('visible');
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    })();
+    </script>
     """,
     unsafe_allow_html=True,
 )
