@@ -30,8 +30,13 @@ if str(APP_ROOT) not in sys.path:
 
 # ── ollama モックを最優先で差し込む ──────────────────────────────────────────
 import types as _types
+from unittest.mock import MagicMock
 if "ollama" not in sys.modules:
     _mock = _types.ModuleType("ollama")
+    # chat / embeddings をダミー属性として持たせておく。
+    # 各テストでは patch() で上書きするため、ここでの戻り値は何でもよい。
+    _mock.chat = MagicMock(return_value={"message": {"content": "{}"}})
+    _mock.embeddings = MagicMock(return_value={"embedding": []})
     sys.modules["ollama"] = _mock
 
 

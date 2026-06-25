@@ -16,7 +16,7 @@ from page_modules.predict_questions_page import render_predict_questions
 from page_modules.history_page import render_history
 from page_modules.interview import render as render_interview, build_conversation_history
 
-# ★ 共通化した初期化ユーティリティ
+#  共通化した初期化ユーティリティ
 from state.initializer import init_session_state
 
 # ============================================================
@@ -32,8 +32,8 @@ logging.basicConfig(
 
 init_db()
 
-from updater import check_and_update
-check_and_update()
+#from updater import check_and_update
+#check_and_update()
 
 # ============================================================
 # Ollama 起動確認（早期フェイル）

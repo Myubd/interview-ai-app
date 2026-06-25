@@ -15,6 +15,9 @@ import sqlite3
 
 import pytest
 
+# DB接続を使うテストは integration マーカーで区別する
+pytestmark = pytest.mark.integration
+
 
 # ============================================================
 # db.database
