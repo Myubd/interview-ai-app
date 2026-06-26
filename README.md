@@ -34,7 +34,7 @@
 
 ## 使用技術
 
-- Python 3.13
+- Python 3.10 / 3.12
 - Streamlit
 - Ollama
 - SQLite
@@ -128,6 +128,18 @@ flowchart TD
 
 ## セットアップ手順
 
+### インストーラー版（Windows・推奨）
+
+[GitHub Releases](https://github.com/Myubd/interview-ai-app/releases/latest) から
+`InterviewAppSetup.exe` をダウンロードして実行するだけで使えます。
+Python・Streamlit等のインストールは不要です。
+
+Ollamaとモデルの取得は別途必要です（下記「1. 必要なモデルを取得する」を参照）。
+
+---
+
+### 開発者向け（ソースから起動）
+
 ### 1. 必要なモデルを取得する
 
 ```bash
@@ -154,6 +166,9 @@ pip install -r requirements.txt
 >
 > # macOS（Homebrew）の例
 > brew install tesseract tesseract-lang
+>
+> # Windows の例（Chocolatey）
+> choco install tesseract
 > ```
 >
 > 未インストールでもアプリ自体は問題なく起動します。画像アップロード時のみ
@@ -184,21 +199,19 @@ streamlit run app.py
 | `company_matrix.py` | 複数志望企業（最大8社）の志望動機一括生成・比較マトリクス・差別化ポイント生成（「🏢 企業比較マトリクス」ページ） |
 | `session_io.py` | 面接セッションのSQLite保存・読み込み・一覧・削除、JSONバックアップのexport/import |
 | `utils.py` | Prompt Injection対策・JSON出力強化ユーティリティ・ハルシネーション抑制ヒント文・面接官プロンプト共通部品 |
-| `db/database.py` | SQLiteスキーマ初期化（`init_db`）・コネクション管理（`db_session`）。 |
+| `favorites.py` | お気に入り機能（セッション保存時の自動スナップショット生成・お気に入り登録・取得） |
+| `industry_engine.py` | 業界別の模擬面接テーマ構成・評価軸の定義（AI模擬面接の業界選択に対応） |
+| `updater.py` | GitHub Releases からの最新バージョン確認・自動アップデート処理 |
+| `launch.py` | EXE起動エントリポイント（PyInstaller向け。ポート解放・旧一時フォルダ削除も担当） |
+| `db/database.py` | SQLiteスキーマ初期化（`init_db`）・コネクション管理（`db_session`） |
 | `requirements.txt` | 依存ライブラリ一覧 |
-
-> `follow_up.py`は旧バージョン（固定質問文＋任意の深掘りモード）で使っていた
-> ファイルです。現在のapp.pyでは使われていません（`interview_engine.py`に
-> 機能が統合されました）。動作には不要なので、フォルダに残しても削除しても
-> 問題ありません。
 
 ### db/database.py について
 
 `rag.py` / `session_io.py` / `app.py` は `from db.database import db_session, init_db` を
-前提にしており、以下のテーブルを想定しています（コード内の使用箇所から逆算した一覧です。
-実装時は併せてマイグレーション・インデックス設計も検討してください）。
+前提にしており、以下のテーブルが定義されています。
 
-- `knowledge_bases`（id, name, kb_type, created_at）
+- `knowledge_bases`（id, name, kb_type, is_active, created_at）
 - `documents`（id, knowledge_base_id, source_name, file_path, version, is_active, embedding_path, created_at）
 - `document_chunks`（id, document_id, chunk_index, chunk_text）
 - `sessions`（id, company_name, session_type, knowledge_base_id, profile_text, interview_complete,
@@ -206,10 +219,11 @@ streamlit run app.py
   company_prs, progress_state, mock_interview_evaluation, status, created_at, updated_at）
 - `messages`（id, session_id, role, content, theme_index）
 - `personality_results`（id, session_id, pa_answers, pa_axis_scores, pa_result）
+- `settings`（key, value）— モデル名・埋め込みモデル名などの永続設定
+- `favorites`（id, item_type, item_id, session_id, company_name, session_type, label, content_snapshot, saved_at）
 
 `db_session()` は `with db_session() as conn:` の形で使われ、`conn.execute(sql, params)` が
-辞書アクセス可能な行（`row["col"]`）を返すことが前提です（標準ライブラリの
-`sqlite3.Row` をrow_factoryに設定する想定）。
+辞書アクセス可能な行（`row["col"]`）を返します（`sqlite3.Row` を row_factory に設定）。
 
 ---
 

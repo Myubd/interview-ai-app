@@ -55,19 +55,18 @@ def render_sidebar() -> str:
 # ──────────────────────────────────────────────────────────────
 
 def _render_version_info():
-    """現在バージョンと最新バージョンをサイドバー最上部に表示する。"""
     current = APP_VERSION
+    if not current or current == "dev":
+        st.caption("🔖 バージョン: dev（開発環境）")
+        return
     latest, fetch_err = fetch_latest_version()
-
-    if fetch_err or latest is None:
-        # GitHub に繋がらない場合は現在バージョンだけ表示
+    st.write(f"DEBUG latest={repr(latest)} err={repr(fetch_err)}")
+    if fetch_err or not latest:
         st.caption(f"🔖 現在のバージョン: {current}")
         return
-
-    # バージョン比較（"1.2.3+abc" → "1.2.3"）
     current_base = current.split("+")[0].lstrip("v")
     latest_base = latest.lstrip("v")
-
+    st.write(f"DEBUG current_base={repr(current_base)} latest_base={repr(latest_base)}")
     if current_base == latest_base:
         st.caption(f"🔖 バージョン: {current}　✅ 最新")
     else:

@@ -34,14 +34,17 @@ def _kill_existing_streamlit(port: int = 8501) -> None:
     "Internal Server Error" が出るのを防ぐ。
     自分自身のPID・PID=0 は誤って終了しないようスキップする。
     """
+    my_pid = os.getpid()
+    killed = False
+
     try:
         result = subprocess.run(
             ["netstat", "-ano"],
             capture_output=True,
             text=True,
         )
-        my_pid = os.getpid()
-        killed = False
+        target_pids: set[int] = set()
+
         for line in result.stdout.splitlines():
             if f":{port} " in line and "LISTENING" in line:
                 parts = line.split()
@@ -53,21 +56,30 @@ def _kill_existing_streamlit(port: int = 8501) -> None:
                     continue
                 if pid == 0 or pid == my_pid:
                     continue
-                subprocess.run(
-                    ["taskkill", "/PID", str(pid), "/F"],
-                    capture_output=True,
-                )
-                killed = True
+                target_pids.add(pid)
 
-        if killed:
-            # OSがポートを解放するまで待つ（最大3秒）
-            for _ in range(30):
-                time.sleep(0.1)
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                    if s.connect_ex(("127.0.0.1", port)) != 0:
-                        break  # ポートが空いた
+        for pid in target_pids:
+            # プロセスツリーごと終了（/T）することで子プロセスも確実に落とす
+            subprocess.run(
+                ["taskkill", "/PID", str(pid), "/T", "/F"],
+                capture_output=True,
+            )
+            killed = True
+
     except Exception:
         pass
+
+    if killed:
+        # OSがポートを解放するまで待つ（最大5秒）
+        for _ in range(50):
+            time.sleep(0.1)
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(0.1)
+                    if s.connect_ex(("127.0.0.1", port)) != 0:
+                        break  # ポートが空いた
+            except Exception:
+                break
 
 
 def main():

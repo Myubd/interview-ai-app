@@ -73,8 +73,8 @@ def check_and_update() -> None:
     if not getattr(sys, "frozen", False):
         return
 
-    # APP_VERSION が "dev" の場合もスキップ
-    if APP_VERSION == "dev":
+    # APP_VERSION が "dev" または空の場合もスキップ
+    if not APP_VERSION or APP_VERSION == "dev":
         return
 
     result = _fetch_latest()
