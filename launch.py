@@ -2,6 +2,7 @@ import os
 import sys
 import glob
 import shutil
+import subprocess
 import streamlit.web.cli as stcli
 
 
@@ -24,8 +25,42 @@ def _cleanup_old_meipass() -> None:
             pass
 
 
+def _kill_existing_streamlit(port: int = 8501) -> None:
+    """起動前に同じポートをLISTENしている既存プロセスを終了する。
+    
+    二重起動や前回の異常終了でプロセスが残留している場合に
+    "Internal Server Error" が出るのを防ぐ。
+    自分自身のPID・PID=0 は誤って終了しないようスキップする。
+    """
+    try:
+        result = subprocess.run(
+            ["netstat", "-ano"],
+            capture_output=True,
+            text=True,
+        )
+        my_pid = os.getpid()
+        for line in result.stdout.splitlines():
+            if f":{port} " in line and "LISTENING" in line:
+                parts = line.split()
+                if not parts:
+                    continue
+                try:
+                    pid = int(parts[-1])
+                except ValueError:
+                    continue
+                if pid == 0 or pid == my_pid:
+                    continue
+                subprocess.run(
+                    ["taskkill", "/PID", str(pid), "/F"],
+                    capture_output=True,
+                )
+    except Exception:
+        pass
+
+
 def main():
     _cleanup_old_meipass()
+    _kill_existing_streamlit()
 
     base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
     app_path = os.path.join(base_path, "app.py")
