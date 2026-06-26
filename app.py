@@ -41,14 +41,28 @@ init_db()
 # 最初の API 呼び出しまでエラーに気づけない問題を防ぐため、
 # 起動時に ollama.list() で接続を確認する。
 # 失敗した場合は画面上にセットアップ案内を表示して st.stop() する。
-@st.cache_data(ttl=30)
+#
+# キャッシュは使わず毎描画でチェックする。
+# 理由: @st.cache_data でキャッシュすると、Ollama が一時的に
+# 応答できない瞬間（LLM推論中・モデルロード中など）に ok=False が
+# キャッシュされ、Ollama が正常に戻った後もキャッシュ期限まで
+# エラー画面が出続けてしまうため。
+# ollama.list() 自体は軽量なリスト取得 API なので毎描画でも問題ない。
+# ただし LLM 推論中は Ollama がブロックするため、応答が遅れる場合がある。
+# socket.setdefaulttimeout で上限を設けてハングを防ぐ。
+import socket as _socket
+
 def _check_ollama() -> tuple[bool, str]:
-    """Ollama への接続確認。結果を 30 秒キャッシュして毎描画の呼び出しコストを抑える。"""
+    """Ollama への接続確認。毎描画で呼び出し、キャッシュはしない。"""
+    _prev = _socket.getdefaulttimeout()
     try:
+        _socket.setdefaulttimeout(5)   # 5秒以内に応答がなければ失敗扱い
         ollama.list()
         return True, ""
     except Exception as e:
         return False, str(e)
+    finally:
+        _socket.setdefaulttimeout(_prev)
 
 _ollama_ok, _ollama_err = _check_ollama()
 if not _ollama_ok:
