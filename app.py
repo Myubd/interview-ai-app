@@ -32,8 +32,8 @@ logging.basicConfig(
 
 init_db()
 
-#from updater import check_and_update
-#check_and_update()
+from updater import check_and_update
+check_and_update()
 
 # ============================================================
 # Ollama 起動確認（早期フェイル）
