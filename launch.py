@@ -2,7 +2,9 @@ import os
 import sys
 import glob
 import shutil
+import socket
 import subprocess
+import time
 import streamlit.web.cli as stcli
 
 
@@ -27,7 +29,7 @@ def _cleanup_old_meipass() -> None:
 
 def _kill_existing_streamlit(port: int = 8501) -> None:
     """起動前に同じポートをLISTENしている既存プロセスを終了する。
-    
+
     二重起動や前回の異常終了でプロセスが残留している場合に
     "Internal Server Error" が出るのを防ぐ。
     自分自身のPID・PID=0 は誤って終了しないようスキップする。
@@ -39,6 +41,7 @@ def _kill_existing_streamlit(port: int = 8501) -> None:
             text=True,
         )
         my_pid = os.getpid()
+        killed = False
         for line in result.stdout.splitlines():
             if f":{port} " in line and "LISTENING" in line:
                 parts = line.split()
@@ -54,6 +57,15 @@ def _kill_existing_streamlit(port: int = 8501) -> None:
                     ["taskkill", "/PID", str(pid), "/F"],
                     capture_output=True,
                 )
+                killed = True
+
+        if killed:
+            # OSがポートを解放するまで待つ（最大3秒）
+            for _ in range(30):
+                time.sleep(0.1)
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    if s.connect_ex(("127.0.0.1", port)) != 0:
+                        break  # ポートが空いた
     except Exception:
         pass
 

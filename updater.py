@@ -49,6 +49,20 @@ def _fetch_latest() -> tuple[str, str] | None:
     return None
 
 
+def fetch_latest_version() -> tuple[str | None, str | None]:
+    """最新バージョンのタグ名を返す。失敗時は (None, エラーメッセージ) を返す。
+    
+    サイドバーのバージョン表示用。EXE・開発環境どちらでも動作する。
+    """
+    try:
+        res = requests.get(RELEASES_API, timeout=5)
+        res.raise_for_status()
+        tag = res.json().get("tag_name", "")
+        return tag, None
+    except Exception as e:
+        return None, str(e)
+
+
 def check_and_update() -> None:
     """
     app.py の init_db() 直後に呼び出す。

@@ -26,6 +26,7 @@ from rag import (
     get_or_create_knowledge_base, list_knowledge_bases, RESUME_KB_NAME,
 )
 from utils import APP_VERSION
+from updater import fetch_latest_version
 
 DEFAULT_CHAT_MODEL = "qwen3:8b"
 DEFAULT_EMBED_MODEL = "nomic-embed-text"
@@ -37,7 +38,7 @@ def render_sidebar() -> str:
     ナビゲーションのクリックは st.session_state.app_mode を直接書き換える。
     """
     with st.sidebar:
-        st.caption(f"ver {APP_VERSION}")
+        _render_version_info()
         _render_warning_banner()
         _render_navigation()
         st.write("---")
@@ -52,6 +53,27 @@ def render_sidebar() -> str:
 # ──────────────────────────────────────────────────────────────
 # 内部ヘルパー
 # ──────────────────────────────────────────────────────────────
+
+def _render_version_info():
+    """現在バージョンと最新バージョンをサイドバー最上部に表示する。"""
+    current = APP_VERSION
+    latest, fetch_err = fetch_latest_version()
+
+    if fetch_err or latest is None:
+        # GitHub に繋がらない場合は現在バージョンだけ表示
+        st.caption(f"🔖 現在のバージョン: {current}")
+        return
+
+    # バージョン比較（"1.2.3+abc" → "1.2.3"）
+    current_base = current.split("+")[0].lstrip("v")
+    latest_base = latest.lstrip("v")
+
+    if current_base == latest_base:
+        st.caption(f"🔖 バージョン: {current}　✅ 最新")
+    else:
+        st.caption(f"🔖 現在: {current}")
+        st.caption(f"🆕 最新バージョン: {latest} が利用可能です")
+
 
 def _render_warning_banner():
     st.markdown(
