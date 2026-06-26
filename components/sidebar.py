@@ -60,13 +60,11 @@ def _render_version_info():
         st.caption("🔖 バージョン: dev（開発環境）")
         return
     latest, fetch_err = fetch_latest_version()
-    st.write(f"DEBUG latest={repr(latest)} err={repr(fetch_err)}")
     if fetch_err or not latest:
         st.caption(f"🔖 現在のバージョン: {current}")
         return
     current_base = current.split("+")[0].lstrip("v")
     latest_base = latest.lstrip("v")
-    st.write(f"DEBUG current_base={repr(current_base)} latest_base={repr(latest_base)}")
     if current_base == latest_base:
         st.caption(f"🔖 バージョン: {current}　✅ 最新")
     else:
