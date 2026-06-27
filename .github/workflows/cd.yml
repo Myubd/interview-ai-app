@@ -56,12 +56,17 @@ jobs:
       - name: Build Installer
         working-directory: streamlit
         run: |
+          Write-Host "Current dir: $(Get-Location)"
+          Write-Host "Files in current dir:"
+          Get-ChildItem | Select-Object Name
+          Write-Host "app.ico exists: $(Test-Path 'app.ico')"
           $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 6\ISCC.exe" }
           if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files (x86)\Inno Setup 7\ISCC.exe" }
           if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 7\ISCC.exe" }
           if (-not (Test-Path $iscc)) { throw "Inno Setup not found" }
           $iconPath = (Resolve-Path "app.ico").Path
+          Write-Host "Icon path: $iconPath"
           & $iscc InterviewAppSetup.iss /DAPP_VERSION=${{ steps.version.outputs.VERSION }} /DICON_PATH="$iconPath"
 
       - name: Upload Streamlit installer
@@ -120,12 +125,15 @@ jobs:
       - name: Build Installer
         working-directory: react-fastapi/backend
         run: |
+          Write-Host "Current dir: $(Get-Location)"
+          Write-Host "app.ico exists: $(Test-Path '..\..\streamlit\app.ico')"
           $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 6\ISCC.exe" }
           if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files (x86)\Inno Setup 7\ISCC.exe" }
           if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 7\ISCC.exe" }
           if (-not (Test-Path $iscc)) { throw "Inno Setup not found" }
           $iconPath = (Resolve-Path "..\..\streamlit\app.ico").Path
+          Write-Host "Icon path: $iconPath"
           & $iscc InterviewAppSetupFastAPI.iss /DAPP_VERSION=${{ steps.version.outputs.VERSION }} /DICON_PATH="$iconPath"
 
       - name: Upload FastAPI installer
