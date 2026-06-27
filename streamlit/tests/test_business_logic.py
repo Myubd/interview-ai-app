@@ -604,7 +604,7 @@ class TestCallOllamaWithJsonRetry:
         good = json.dumps({"score": 3, "comment": "普通"})
         responses = [self._make_response(bad), self._make_response(good)]
         with patch("utils.ollama_client.ollama.chat", side_effect=responses), \
-             patch("utils.time.sleep"):  # スリープをスキップ
+             patch("utils.ollama_client.time.sleep"):  # スリープをスキップ
             result = call_ollama_with_json_retry(
                 model="test-model",
                 prompt="評価して",
@@ -618,7 +618,7 @@ class TestCallOllamaWithJsonRetry:
         """全リトライが失敗した場合、fallback + ok=False が返る。"""
         from utils import call_ollama_with_json_retry
         with patch("utils.ollama_client.ollama.chat", return_value=self._make_response("broken")), \
-             patch("utils.time.sleep"):
+             patch("utils.ollama_client.time.sleep"):
             result = call_ollama_with_json_retry(
                 model="test-model",
                 prompt="評価して",
@@ -635,7 +635,7 @@ class TestCallOllamaWithJsonRetry:
         from utils import call_ollama_with_json_retry
         payload = json.dumps({"comment": "キーなし"})  # "score" が欠け
         with patch("utils.ollama_client.ollama.chat", return_value=self._make_response(payload)), \
-             patch("utils.time.sleep"):
+             patch("utils.ollama_client.time.sleep"):
             result = call_ollama_with_json_retry(
                 model="test-model",
                 prompt="評価して",
@@ -648,7 +648,7 @@ class TestCallOllamaWithJsonRetry:
         """Ollama呼び出し自体が例外を投げた場合も fallback が返る。"""
         from utils import call_ollama_with_json_retry
         with patch("utils.ollama_client.ollama.chat", side_effect=ConnectionError("接続失敗")), \
-             patch("utils.time.sleep"):
+             patch("utils.ollama_client.time.sleep"):
             result = call_ollama_with_json_retry(
                 model="test-model",
                 prompt="評価して",
@@ -698,7 +698,7 @@ class TestCallOllamaWithJsonArrayRetry:
         from utils import call_ollama_with_json_array_retry
         payload = json.dumps({"not": "a list"})
         with patch("utils.ollama_client.ollama.chat", return_value=self._make_response(payload)), \
-             patch("utils.time.sleep"):
+             patch("utils.ollama_client.time.sleep"):
             data, ok, err = call_ollama_with_json_array_retry(
                 model="test-model",
                 prompt="バリエーション生成",
@@ -713,7 +713,7 @@ class TestCallOllamaWithJsonArrayRetry:
         from utils import call_ollama_with_json_array_retry
         payload = json.dumps([{"wrong_key": "value"}])
         with patch("utils.ollama_client.ollama.chat", return_value=self._make_response(payload)), \
-             patch("utils.time.sleep"):
+             patch("utils.ollama_client.time.sleep"):
             data, ok, err = call_ollama_with_json_array_retry(
                 model="test-model",
                 prompt="バリエーション生成",
@@ -741,7 +741,7 @@ class TestCallOllamaWithTextRetry:
     def test_empty_response_triggers_retry_then_fallback(self):
         from utils import call_ollama_with_text_retry
         with patch("utils.ollama_client.ollama.chat", return_value=self._make_response("")), \
-             patch("utils.time.sleep"):
+             patch("utils.ollama_client.time.sleep"):
             result = call_ollama_with_text_retry(
                 model="test-model",
                 prompt="リライト",
@@ -755,7 +755,7 @@ class TestCallOllamaWithTextRetry:
         """min_length=10 を下回る短い出力は失敗扱いになる。"""
         from utils import call_ollama_with_text_retry
         with patch("utils.ollama_client.ollama.chat", return_value=self._make_response("短い")), \
-             patch("utils.time.sleep"):
+             patch("utils.ollama_client.time.sleep"):
             result = call_ollama_with_text_retry(
                 model="test-model",
                 prompt="リライト",
@@ -767,7 +767,7 @@ class TestCallOllamaWithTextRetry:
     def test_exception_returns_fallback(self):
         from utils import call_ollama_with_text_retry
         with patch("utils.ollama_client.ollama.chat", side_effect=RuntimeError("エラー")), \
-             patch("utils.time.sleep"):
+             patch("utils.ollama_client.time.sleep"):
             result = call_ollama_with_text_retry(
                 model="test-model",
                 prompt="リライト",
@@ -851,7 +851,7 @@ class TestCallOllamaWithJsonRetrySlept:
         with patch("utils.ollama_client.ollama.chat", side_effect=[
             self._make_response(bad),
             self._make_response(good),
-        ]) as _, patch("utils.time.sleep") as mock_sleep:
+        ]) as _, patch("utils.ollama_client.time.sleep") as mock_sleep:
             result = call_ollama_with_json_retry(
                 model="m", prompt="p", required_keys=["score"],
                 max_retries=1, retry_wait_sec=0.5,
@@ -870,7 +870,7 @@ class TestCallOllamaWithJsonRetrySlept:
         with patch("utils.ollama_client.ollama.chat", side_effect=[
             self._make_response(bad),
             self._make_response(good),
-        ]), patch("utils.time.sleep"):
+        ]), patch("utils.ollama_client.time.sleep"):
             result = call_ollama_with_json_retry(
                 model="m", prompt="p", required_keys=["key"], max_retries=1,
             )
@@ -894,7 +894,7 @@ class TestCallOllamaWithJsonArrayRetrySlept:
         with patch("utils.ollama_client.ollama.chat", side_effect=[
             self._make_response(bad),
             self._make_response(good),
-        ]), patch("utils.time.sleep") as mock_sleep:
+        ]), patch("utils.ollama_client.time.sleep") as mock_sleep:
             data, ok, _ = call_ollama_with_json_array_retry(
                 model="m", prompt="p", item_required_keys=["title"], max_retries=1,
             )
@@ -907,7 +907,7 @@ class TestCallOllamaWithJsonArrayRetrySlept:
         with patch("utils.ollama_client.ollama.chat", side_effect=[
             self._make_response("{"),           # JSONDecodeError
             self._make_response(json.dumps([{"k": "v"}])),
-        ]), patch("utils.time.sleep"):
+        ]), patch("utils.ollama_client.time.sleep"):
             data, ok, _ = call_ollama_with_json_array_retry(
                 model="m", prompt="p", item_required_keys=["k"], max_retries=1,
             )
@@ -927,7 +927,7 @@ class TestCallOllamaWithTextRetrySlept:
         with patch("utils.ollama_client.ollama.chat", side_effect=[
             self._make_response("短"),          # min_length=10 未満
             self._make_response("十分に長いテキストです"),
-        ]), patch("utils.time.sleep") as mock_sleep:
+        ]), patch("utils.ollama_client.time.sleep") as mock_sleep:
             result = call_ollama_with_text_retry(
                 model="m", prompt="p", min_length=10, max_retries=1,
             )
@@ -1015,7 +1015,7 @@ class TestSearchBalanced:
         return self.Document(doc_type=doc_type, source_name="test", chunks=chunks, embeddings=embeddings)
 
     def test_empty_documents_returns_empty(self):
-        with patch("rag._get_query_embedding", return_value=np.array([1, 0, 0, 0], dtype=np.float32)):
+        with patch("rag.core._get_query_embedding", return_value=np.array([1, 0, 0, 0], dtype=np.float32)):
             result = self.search("query", [])
         assert result == []
 
@@ -1023,7 +1023,7 @@ class TestSearchBalanced:
         resume_doc = self._make_doc("resume", ["経験1", "経験2"])
         company_doc = self._make_doc("company", ["企業情報1"])
         query_vec = np.array([1, 0, 0, 0], dtype=np.float32)
-        with patch("rag._get_query_embedding", return_value=query_vec):
+        with patch("rag.core._get_query_embedding", return_value=query_vec):
             results = self.search("query", [resume_doc, company_doc])
         doc_types = {r[0] for r in results}
         assert "resume" in doc_types
@@ -1032,7 +1032,7 @@ class TestSearchBalanced:
     def test_top_k_limits_results_per_type(self):
         doc = self._make_doc("resume", [f"chunk{i}" for i in range(10)])
         query_vec = np.array([1, 0, 0, 0], dtype=np.float32)
-        with patch("rag._get_query_embedding", return_value=query_vec):
+        with patch("rag.core._get_query_embedding", return_value=query_vec):
             results = self.search("query", [doc], top_k_per_type=3)
         resume_results = [r for r in results if r[0] == "resume"]
         assert len(resume_results) <= 3
@@ -1040,14 +1040,14 @@ class TestSearchBalanced:
     def test_doc_with_no_embeddings_skipped(self):
         doc = self.Document(doc_type="resume", source_name="empty", chunks=["c1"], embeddings=None)
         query_vec = np.array([1, 0, 0, 0], dtype=np.float32)
-        with patch("rag._get_query_embedding", return_value=query_vec):
+        with patch("rag.core._get_query_embedding", return_value=query_vec):
             results = self.search("query", [doc])
         assert results == []
 
     def test_scores_are_floats(self):
         doc = self._make_doc("resume", ["チャンク"])
         query_vec = np.array([1, 0, 0, 0], dtype=np.float32)
-        with patch("rag._get_query_embedding", return_value=query_vec):
+        with patch("rag.core._get_query_embedding", return_value=query_vec):
             results = self.search("query", [doc])
         for _, _, score in results:
             assert isinstance(score, float)
