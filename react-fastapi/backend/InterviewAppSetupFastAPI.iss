@@ -6,7 +6,6 @@ OutputDir=output
 OutputBaseFilename=InterviewAppSetupFastAPI
 Compression=lzma
 SolidCompression=yes
-SetupIconFile={#ICON_PATH}
 
 [Files]
 Source: "dist\launch_fastapi\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
