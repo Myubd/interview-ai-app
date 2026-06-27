@@ -117,9 +117,10 @@ class TestNormalizeIndustryFit:
         assert result == {}
 
     def test_all_zero(self):
-        result = self._fn({"IT": 0, "金融": 0})
-        for v in result.values():
-            assert v == 0
+        # スコア0は範囲外（1〜5）のため1にクランプされる
+        result = self._fn({"IT・Web": {"score": 0, "reason": "test"}, "金融": {"score": 0, "reason": "test"}})
+        assert result["IT・Web"]["score"] == 1
+        assert result["金融"]["score"] == 1
 
 
 # ============================================================
@@ -143,4 +144,6 @@ class TestFormatThemeHistory:
         assert "自己紹介をしてください" in result
 
     def test_empty_messages(self):
-        assert self._fn([]) == ""
+        # 空リストのとき「まだやり取りなし」プレースホルダーを返す
+        result = self._fn([])
+        assert "まだやり取りなし" in result

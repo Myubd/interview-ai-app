@@ -1,133 +1,129 @@
-name: CI
-
+name: CI - Test & Build Check
 on:
   push:
-    branches: [main, develop]
+    branches: [ "main" ]
   pull_request:
-    branches: [main]
 
 jobs:
   # ============================================================
-  # バックエンド — ユニット・インテグレーション・APIテスト
+  # Streamlit版 ユニットテスト
   # ============================================================
-  test-backend:
-    name: Backend Tests (Python ${{ matrix.python-version }})
+  streamlit-unit-test:
+    name: Streamlit Unit Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.11", "3.12"]
-
+        python-version: ["3.10", "3.12"]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Setup Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: backend/requirements.txt
 
       - name: Install dependencies
-        working-directory: backend
-        run: pip install -r requirements.txt
-
-      - name: Run unit tests
-        working-directory: backend
-        run: pytest -m unit --tb=short -q
-
-      - name: Run integration tests
-        working-directory: backend
-        run: pytest -m integration --tb=short -q
-
-      - name: Run API tests
-        working-directory: backend
-        run: pytest -m api --tb=short -q
-
-      - name: Run all tests with coverage
-        working-directory: backend
+        working-directory: streamlit
         run: |
-          pip install pytest-cov
-          pytest --cov=. --cov-report=xml --cov-report=term-missing -q
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
 
-      - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.11'
-        uses: codecov/codecov-action@v4
+      - name: Run unit tests with coverage
+        working-directory: streamlit
+        run: |
+          pytest tests/ -m "not integration" \
+            --cov=utils \
+            --cov=rag \
+            --cov=session_io \
+            --cov=startup \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=70
+
+      - name: Upload coverage report
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
         with:
-          files: backend/coverage.xml
-          flags: backend
-          fail_ci_if_error: false
+          name: streamlit-coverage-report
+          path: streamlit/coverage.xml
 
   # ============================================================
-  # フロントエンド — TypeScript ビルドチェック
+  # FastAPI版 ユニット・APIテスト
   # ============================================================
-  build-frontend:
-    name: Frontend Build Check
+  fastapi-unit-test:
+    name: FastAPI Unit & API Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.12"]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: frontend/package.json
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        working-directory: frontend
-        run: npm install
-
-      - name: TypeScript check & build
-        working-directory: frontend
-        run: npm run build
-
-  # ============================================================
-  # Docker Compose — イメージビルド確認
-  # ============================================================
-  docker-build:
-    name: Docker Compose Build
-    runs-on: ubuntu-latest
-    # テストが通ったあとにのみ実行
-    needs: [test-backend, build-frontend]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build images
-        run: docker compose build --no-cache
-
-      - name: Verify backend image starts
+        working-directory: react-fastapi/backend
         run: |
-          docker compose up -d ollama backend
-          sleep 10
-          docker compose logs backend
-          docker compose down
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest pytest-cov httpx
 
-  # ============================================================
-  # コード品質チェック（オプション）
-  # ============================================================
-  lint:
-    name: Lint & Format
-    runs-on: ubuntu-latest
+      - name: Run unit and API tests with coverage
+        working-directory: react-fastapi/backend
+        run: |
+          pytest tests/ -m "not integration" \
+            --cov=api \
+            --cov=llm \
+            --cov=services \
+            --cov-report=term-missing \
+            --cov-report=xml \
+            --cov-fail-under=60
 
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
+      - name: Upload coverage report
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
         with:
-          python-version: "3.11"
-          cache: pip
+          name: fastapi-coverage-report
+          path: react-fastapi/backend/coverage.xml
 
-      - name: Install linters
-        run: pip install ruff
+  # ============================================================
+  # PyInstaller ビルド確認（Windows）
+  # streamlit-unit-test と fastapi-unit-test 両方通過後に実行
+  # ============================================================
+  build-check:
+    name: PyInstaller Build Check (Windows)
+    runs-on: windows-latest
+    needs: [streamlit-unit-test, fastapi-unit-test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: ruff check (lint)
-        working-directory: backend
-        run: ruff check . --select=E,F,W --ignore=E501,F401
-        continue-on-error: true   # 最初は警告のみ
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
 
-      - name: ruff format check
-        working-directory: backend
-        run: ruff format . --check
-        continue-on-error: true
+      - name: Install dependencies
+        working-directory: streamlit
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller==6.21.0
+
+      - name: Test PyInstaller build (dry run)
+        working-directory: streamlit
+        shell: pwsh
+        run: |
+          Set-Location $env:GITHUB_WORKSPACE\streamlit
+          pyinstaller launch.spec --noconfirm
+
+      - name: Check dist output
+        working-directory: streamlit
+        run: |
+          dir dist

@@ -37,6 +37,12 @@ if "ollama" not in sys.modules:
     # 各テストでは patch() で上書きするため、ここでの戻り値は何でもよい。
     _mock.chat = MagicMock(return_value={"message": {"content": "{}"}})
     _mock.embeddings = MagicMock(return_value={"embedding": []})
+    # ollama.Client（utils/ollama_client.py がモジュールロード時に呼ぶ）
+    _mock_client = MagicMock()
+    _mock_client.chat = MagicMock(return_value={"message": {"content": "{}"}})
+    _mock_client.embeddings = MagicMock(return_value={"embedding": []})
+    _mock_client.list = MagicMock(return_value={"models": []})
+    _mock.Client = MagicMock(return_value=_mock_client)
     sys.modules["ollama"] = _mock
 
 

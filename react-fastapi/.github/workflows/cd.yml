@@ -1,0 +1,75 @@
+name: CD - Build & Release
+on:
+  push:
+    tags:
+      - "v*"
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        working-directory: streamlit
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller==6.21.0
+          pip install pytest pytest-cov
+
+      - name: Run tests
+        working-directory: streamlit
+        run: |
+          pytest tests/ -v --tb=short -m "not integration" --cov=utils --cov=rag --cov-report=term-missing
+
+      - name: Get version info
+        id: version
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $ver = $tag -replace '^v', ''
+          $hash = git rev-parse --short HEAD
+          echo "TAG=$tag" >> $env:GITHUB_OUTPUT
+          echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
+          echo "FULL_VERSION=$ver+$hash" >> $env:GITHUB_OUTPUT
+
+      - name: Write version file
+        working-directory: streamlit
+        run: |
+          echo "${{ steps.version.outputs.FULL_VERSION }}" > version.txt
+
+      - name: Build EXE
+        working-directory: streamlit
+        run: pyinstaller launch.spec
+
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+
+      - name: Build Installer
+        working-directory: streamlit
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 6\ISCC.exe" }
+          if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files (x86)\Inno Setup 7\ISCC.exe" }
+          if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 7\ISCC.exe" }
+          if (-not (Test-Path $iscc)) { throw "Inno Setup not found" }
+          & $iscc InterviewAppSetup.iss /DAPP_VERSION=${{ steps.version.outputs.VERSION }}
+
+      - name: Generate Changelog
+        run: |
+          echo "Release ${{ steps.version.outputs.TAG }}" > changelog.txt
+          git log -1 --pretty=%B >> changelog.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.TAG }}
+          name: Release ${{ steps.version.outputs.TAG }}
+          body_path: changelog.txt
+          files: streamlit/output/InterviewAppSetup.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
