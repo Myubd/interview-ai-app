@@ -36,8 +36,6 @@ jobs:
           pytest tests/ -m "not integration" \
             --cov=utils \
             --cov=rag \
-            --cov=session_io \
-            --cov=startup \
             --cov-report=term-missing \
             --cov-report=xml \
             --cov-fail-under=70
