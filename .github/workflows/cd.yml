@@ -111,7 +111,7 @@ jobs:
 
       - name: Build EXE
         working-directory: react-fastapi/backend
-        run: pyinstaller launch_fastapi.spec
+        run: pyinstaller launch_fastapi.spec --icon="..\..\streamlit\app.ico"
 
       - name: Install Inno Setup
         run: choco install innosetup -y

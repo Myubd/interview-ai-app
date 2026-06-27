@@ -6,7 +6,7 @@ OutputDir=output
 OutputBaseFilename=InterviewAppSetupFastAPI
 Compression=lzma
 SolidCompression=yes
-SetupIconFile=..\streamlit\app.ico
+SetupIconFile={srcdir}\..\..\streamlit\app.ico
 
 [Files]
 Source: "dist\launch_fastapi\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
