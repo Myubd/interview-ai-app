@@ -67,17 +67,7 @@ def get_version() -> str:
 
 APP_VERSION: str = get_version()  # 例: "1.2.3+abc1234"
 
-import ollama
-
-# Docker / 環境変数でOllamaホストを切り替える
-# utils.py が直接 ollama.chat() を使うため、Client を生成して monkey-patch する
-_OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-_ollama_client = ollama.Client(host=_OLLAMA_HOST)
-
-# グローバルの ollama.chat / ollama.embeddings を Client メソッドで上書き
-# （既存コードを改変せずに Docker 対応する最小パッチ）
-ollama.chat = _ollama_client.chat
-ollama.embeddings = _ollama_client.embeddings
+from llm.ollama_client import get_client as _get_ollama_client
 
 logger = logging.getLogger(__name__)
 
@@ -266,7 +256,7 @@ def call_ollama_with_json_retry(
             # format="json" でOllama側にもJSON出力モードを要求する。
             # プロンプト側の指示と二重になるが、対応モデルでは出力が崩れにくくなり
             # リトライ発生率を下げられる（非対応モデルでも無視されるだけで実害はない）。
-            response = ollama.chat(
+            response = _get_ollama_client().chat(
                 model=model,
                 messages=[{"role": "user", "content": effective_prompt}],
                 format="json",
@@ -331,7 +321,7 @@ def call_ollama_with_json_array_retry(
     for attempt in range(max_retries + 1):
         effective_prompt = prompt if attempt == 0 else prompt + _RETRY_SUFFIX
         try:
-            response = ollama.chat(
+            response = _get_ollama_client().chat(
                 model=model,
                 messages=[{"role": "user", "content": effective_prompt}],
                 format="json",
@@ -402,7 +392,7 @@ def call_ollama_with_text_retry(
     last_error: str = ""
     for attempt in range(max_retries + 1):
         try:
-            response = ollama.chat(model=model, messages=[{"role": "user", "content": prompt}])
+            response = _get_ollama_client().chat(model=model, messages=[{"role": "user", "content": prompt}])
             text = response["message"]["content"].strip()
             if len(text) < min_length:
                 last_error = f"出力が空または短すぎます（{len(text)}文字）。"

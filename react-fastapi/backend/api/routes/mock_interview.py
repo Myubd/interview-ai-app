@@ -35,10 +35,13 @@ class StartResponse(BaseModel):
 
 
 class AnswerRequest(BaseModel):
+    """回答送信リクエスト。
+
+    `messages` にフロント側で追記済みの全メッセージ履歴を含めて送ること。
+    """
     theme_index: int
     followups_asked: int
     messages: list[dict]
-    answer: str           # フロントが追記済みのメッセージリストを送るので実質不使用だが
     industry_key: str = "general"
     persona_key: str = "standard"
     profile_text: str = ""

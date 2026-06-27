@@ -21,17 +21,10 @@ import logging
 import re
 from dataclasses import dataclass, field
 
-import os
-
 import numpy as np
-import ollama
 
 from db.settings_repository import get_setting
-
-# Docker / 環境変数でOllamaホストを切り替える（utils.py と同じパターン）
-_OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
-_ollama_client = ollama.Client(host=_OLLAMA_HOST)
-ollama.embeddings = _ollama_client.embeddings
+from llm.ollama_client import get_client as _get_ollama_client
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +103,7 @@ def embed_texts(texts: list[str]) -> np.ndarray:
 
     def _embed_one(idx_text: tuple[int, str]) -> tuple[int, list]:
         idx, text = idx_text
-        res = ollama.embeddings(model=model, prompt=text)
+        res = _get_ollama_client().embeddings(model=model, prompt=text)
         return idx, res["embedding"]
 
     MAX_WORKERS = 4
@@ -155,19 +148,35 @@ def _cosine_similarity(query_vec: np.ndarray, matrix: np.ndarray) -> np.ndarray:
 
 # セッション内の埋め込みクエリキャッシュ（同一クエリへのOllama呼び出しを省略）
 # { (model_name, query_text): np.ndarray } の形式で保持する。
-# プロセスが生きている間（Streamlitセッション単位）のみ有効。
+# メモリ肥大を防ぐため上限を設ける（超過時は最も古いエントリを削除）。
+_QUERY_EMBED_CACHE_MAX = 256
 _QUERY_EMBED_CACHE: dict[tuple[str, str], np.ndarray] = {}
 
 
 def _get_query_embedding(query: str) -> np.ndarray:
-    """クエリ文字列の埋め込みベクトルを返す。同一クエリはキャッシュから返す。"""
+    """クエリ文字列の埋め込みベクトルを返す。同一クエリはキャッシュから返す。
+
+    上限（_QUERY_EMBED_CACHE_MAX）を超えた場合は最も古いエントリを1件削除する
+    簡易LRU実装（Python 3.7+ の dict は挿入順を保持する）。
+    """
     model = get_setting("embed_model", EMBED_MODEL)
     cache_key = (model, query)
-    if cache_key not in _QUERY_EMBED_CACHE:
-        _QUERY_EMBED_CACHE[cache_key] = np.array(
-            ollama.embeddings(model=model, prompt=query)["embedding"], dtype=np.float32
-        )
-    return _QUERY_EMBED_CACHE[cache_key]
+    if cache_key in _QUERY_EMBED_CACHE:
+        # ヒット時: 最新として扱うため一度削除して再挿入
+        vec = _QUERY_EMBED_CACHE.pop(cache_key)
+        _QUERY_EMBED_CACHE[cache_key] = vec
+        return vec
+
+    # キャッシュミス: 上限チェック → 最古エントリを削除
+    if len(_QUERY_EMBED_CACHE) >= _QUERY_EMBED_CACHE_MAX:
+        oldest_key = next(iter(_QUERY_EMBED_CACHE))
+        del _QUERY_EMBED_CACHE[oldest_key]
+
+    vec = np.array(
+        _get_ollama_client().embeddings(model=model, prompt=query)["embedding"], dtype=np.float32
+    )
+    _QUERY_EMBED_CACHE[cache_key] = vec
+    return vec
 
 
 def search_balanced(

@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.openapi.utils import get_openapi
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
@@ -62,9 +62,22 @@ SSE イベント種別:
 ]
 
 # ============================================================
+# lifespan（DB初期化）
+# ============================================================
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """アプリ起動時にDBを初期化し、終了時にクリーンアップする。"""
+    init_db()
+    logger.info("DB initialized")
+    yield
+    # 終了時の処理が必要であればここに追加
+
+
+# ============================================================
 # アプリ初期化
 # ============================================================
 app = FastAPI(
+    lifespan=lifespan,
     title="就活インタビューAI API",
     description="""
 ## 概要
@@ -100,22 +113,20 @@ EventSource または fetch + ReadableStream で受け取ってください。
 )
 
 # ── CORS ────────────────────────────────────────────────────
+# 環境変数 ALLOWED_ORIGINS でカンマ区切りに複数指定可能。
+# 未設定時はローカル開発用のデフォルト値を使用する。
+_raw_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000")
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:3000",
-    ],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# ── DB 初期化 ────────────────────────────────────────────────
-@app.on_event("startup")
-async def on_startup() -> None:
-    init_db()
-    logger.info("DB initialized")
+# ── DB 初期化（lifespan に移動済み） ─────────────────────────
 
 # ── ルーター登録 ─────────────────────────────────────────────
 app.include_router(health.router,          prefix="/api/v1",                 tags=["health"])
