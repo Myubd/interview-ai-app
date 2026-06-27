@@ -7,10 +7,11 @@ echo   Interview App Release Tool
 echo ========================================
 echo.
 
-for /f "tokens=*" %%i in ('git describe --tags --abbrev=0 2^>nul') do set LATEST_TAG=%%i
+:: 最新タグをバージョン順でソートして取得
+for /f "tokens=*" %%i in ('git tag --sort^=version:refname') do set LATEST_TAG=%%i
 if "%LATEST_TAG%"=="" set LATEST_TAG=v0.0.0
 
-echo Current tag: %LATEST_TAG%
+echo Current latest tag: %LATEST_TAG%
 echo.
 
 set VERSION=%LATEST_TAG:v=%
