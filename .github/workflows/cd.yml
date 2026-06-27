@@ -50,15 +50,18 @@ jobs:
         working-directory: streamlit
         run: pyinstaller launch.spec
 
-        - name: Check dist contents
-          working-directory: streamlit
-          shell: pwsh
-          run: |
-          Write-Host "=== DIST ==="
-          Get-ChildItem dist -Recurse
-
       - name: Install Inno Setup
         run: choco install innosetup -y
+
+      - name: Debug dist contents
+        working-directory: streamlit
+        run: |
+          Write-Host "=== dist/ contents ==="
+          if (Test-Path "dist") { Get-ChildItem -Recurse dist | Select-Object FullName } else { Write-Host "dist/ NOT FOUND" }
+          Write-Host "=== app.ico ==="
+          Test-Path "app.ico"
+          Write-Host "=== InterviewAppSetup.iss ==="
+          Get-Content "InterviewAppSetup.iss"
 
       - name: Build Installer
         working-directory: streamlit
