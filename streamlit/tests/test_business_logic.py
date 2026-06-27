@@ -1062,7 +1062,7 @@ class TestGetQueryEmbedding:
         rag._QUERY_EMBED_CACHE.clear()
 
         fake_vec = [0.1, 0.2, 0.3]
-        with patch("rag.ollama.embeddings", return_value={"embedding": fake_vec}) as mock_emb, \
+        with patch("rag.core.ollama.embeddings", return_value={"embedding": fake_vec}) as mock_emb, \
              patch("rag.get_setting", return_value="nomic-embed-text"):
             v1 = rag._get_query_embedding("テストクエリ")
             v2 = rag._get_query_embedding("テストクエリ")
@@ -1073,7 +1073,7 @@ class TestGetQueryEmbedding:
     def test_different_queries_call_twice(self):
         import rag
         rag._QUERY_EMBED_CACHE.clear()
-        with patch("rag.ollama.embeddings", return_value={"embedding": [0.1]}) as mock_emb, \
+        with patch("rag.core.ollama.embeddings", return_value={"embedding": [0.1]}) as mock_emb, \
              patch("rag.get_setting", return_value="nomic-embed-text"):
             rag._get_query_embedding("クエリA")
             rag._get_query_embedding("クエリB")
