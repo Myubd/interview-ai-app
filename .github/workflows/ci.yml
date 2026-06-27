@@ -54,7 +54,7 @@ jobs:
           pip install pyinstaller==6.21.0
       - name: Test PyInstaller build (dry run)
         run: |
-          pyinstaller streamlit/launch.spec --noconfirm
+          pyinstaller streamlit\\launch.spec --noconfirm
       - name: Check dist output
         run: |
           dir streamlit\dist
