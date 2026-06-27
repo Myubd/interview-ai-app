@@ -5,8 +5,22 @@ __pycache__/
 *.pyd
 .Python
 *.egg-info/
+
+# ビルド成果物（PyInstaller）
 dist/
 build/
+output/
+*.spec
+*.exe
+*.pkg
+
+# Windows ビルドスクリプト・Inno Setup
+localbuild.bat
+InterviewAppSetup.iss
+launch.spec
+
+# アプリアイコン（バイナリ）
+app.ico
 
 # 仮想環境
 .venv/
@@ -14,7 +28,6 @@ venv/
 env/
 
 # ローカルDB（個人情報を含む可能性があるため除外）
-db/career_support.db
 db/*.db
 db/*.db-shm
 db/*.db-wal
