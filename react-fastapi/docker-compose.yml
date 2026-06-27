@@ -1,0 +1,93 @@
+services:
+
+  # ── Ollama（ローカル LLM）─────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: interview_ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    # GPU を使う場合はコメントを外す
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+  # ── バックエンド（FastAPI）──────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: interview_backend
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      DB_PATH: /app/data/career_support.db
+      LOG_LEVEL: INFO
+    volumes:
+      - backend_data:/app/data
+    ports:
+      - "8000:8000"
+
+  # ── フロントエンド（React + nginx）──────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: interview_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+
+  # ── テスト（CI / ローカル両用）──────────────────────────────
+  # docker compose --profile test run --rm test
+  # docker compose --profile test run --rm test pytest -m unit       # 高速
+  # docker compose --profile test run --rm test pytest -m integration
+  # docker compose --profile test run --rm test pytest -m api
+  test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.test
+    container_name: interview_test
+    profiles: [test]
+    environment:
+      INTERVIEW_DB_PATH: /tmp/test.db
+    volumes:
+      - ./backend:/app      # ホットリロード：コード変更が即反映
+    working_dir: /app
+    command: pytest
+
+  # ── モデルセットアップ（初回のみ）──────────────────────────
+  # docker compose --profile setup run --rm model_setup
+  model_setup:
+    image: ollama/ollama:latest
+    container_name: interview_model_setup
+    profiles: [setup]
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint: >
+      sh -c "
+        sleep 5 &&
+        echo '=== チャットモデルをダウンロード中 ===' &&
+        ollama pull qwen3:8b &&
+        echo '=== 埋め込みモデルをダウンロード中 ===' &&
+        ollama pull nomic-embed-text &&
+        echo '=== 完了 ==='
+      "
+    volumes:
+      - ollama_data:/root/.ollama
+
+volumes:
+  ollama_data:
+  backend_data:

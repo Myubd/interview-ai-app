@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# DB / RAG ファイル
+*.db
+*.sqlite3
+data/
+
+# ビルド成果物
+build/
+dist/
+output/
+
+# Frontend
+node_modules/
+.vite/
+
+# OS
+.DS_Store
