@@ -107,16 +107,22 @@ class TestNormalizeIndustryFit:
         from utils import normalize_industry_fit
         return normalize_industry_fit(d)
 
-    def test_values_in_0_100(self):
-        result = self._fn({"IT": 120, "金融": -5, "商社": 50})
-        for v in result.values():
-            assert 0 <= v <= 100
+    def test_values_in_1_5(self):
+        # スコアは1〜5にクランプされる
+        result = self._fn({"IT・Web": {"score": 99, "reason": "高い"}, "金融": {"score": -5, "reason": "低い"}})
+        assert result["IT・Web"]["score"] == 5
+        assert result["金融"]["score"] == 1
 
-    def test_empty_dict(self):
+    def test_empty_dict_returns_all_keys_with_defaults(self):
+        # 空dictでも全業界キーがデフォルト値（score=1）で補完される
+        from utils import INDUSTRY_KEYS
         result = self._fn({})
-        assert result == {}
+        assert set(result.keys()) == set(INDUSTRY_KEYS)
+        for v in result.values():
+            assert v["score"] == 1
+            assert v["reason"] == "情報不足のため評価困難"
 
-    def test_all_zero(self):
+    def test_all_zero_clamped_to_1(self):
         # スコア0は範囲外（1〜5）のため1にクランプされる
         result = self._fn({"IT・Web": {"score": 0, "reason": "test"}, "金融": {"score": 0, "reason": "test"}})
         assert result["IT・Web"]["score"] == 1

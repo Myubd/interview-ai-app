@@ -588,7 +588,7 @@ class TestCallOllamaWithJsonRetry:
     def test_success_on_first_attempt(self):
         from utils import call_ollama_with_json_retry
         payload = json.dumps({"score": 4, "comment": "良い"})
-        with patch("utils.ollama_client.ollama.chat", return_value=self._make_response(payload)):
+        with patch("utils.ollama_client._ollama_client.chat", return_value=self._make_response(payload)):
             result = call_ollama_with_json_retry(
                 model="test-model",
                 prompt="評価して",
@@ -603,7 +603,7 @@ class TestCallOllamaWithJsonRetry:
         bad = "これはJSONではありません"
         good = json.dumps({"score": 3, "comment": "普通"})
         responses = [self._make_response(bad), self._make_response(good)]
-        with patch("utils.ollama_client.ollama.chat", side_effect=responses), \
+        with patch("utils.ollama_client._ollama_client.chat", side_effect=responses), \
              patch("utils.ollama_client.time.sleep"):  # スリープをスキップ
             result = call_ollama_with_json_retry(
                 model="test-model",
@@ -617,7 +617,7 @@ class TestCallOllamaWithJsonRetry:
     def test_all_retries_exhausted_returns_fallback(self):
         """全リトライが失敗した場合、fallback + ok=False が返る。"""
         from utils import call_ollama_with_json_retry
-        with patch("utils.ollama_client.ollama.chat", return_value=self._make_response("broken")), \
+        with patch("utils.ollama_client._ollama_client.chat", return_value=self._make_response("broken")), \
              patch("utils.ollama_client.time.sleep"):
             result = call_ollama_with_json_retry(
                 model="test-model",
@@ -634,7 +634,7 @@ class TestCallOllamaWithJsonRetry:
         """必須キーが欠けていると ok=False になる。"""
         from utils import call_ollama_with_json_retry
         payload = json.dumps({"comment": "キーなし"})  # "score" が欠け
-        with patch("utils.ollama_client.ollama.chat", return_value=self._make_response(payload)), \
+        with patch("utils.ollama_client._ollama_client.chat", return_value=self._make_response(payload)), \
              patch("utils.ollama_client.time.sleep"):
             result = call_ollama_with_json_retry(
                 model="test-model",
@@ -647,7 +647,7 @@ class TestCallOllamaWithJsonRetry:
     def test_ollama_exception_returns_fallback(self):
         """Ollama呼び出し自体が例外を投げた場合も fallback が返る。"""
         from utils import call_ollama_with_json_retry
-        with patch("utils.ollama_client.ollama.chat", side_effect=ConnectionError("接続失敗")), \
+        with patch("utils.ollama_client._ollama_client.chat", side_effect=ConnectionError("接続失敗")), \
              patch("utils.ollama_client.time.sleep"):
             result = call_ollama_with_json_retry(
                 model="test-model",
@@ -663,7 +663,7 @@ class TestCallOllamaWithJsonRetry:
         """LLMがmarkdownのコードブロックで包んで返しても正しく処理できる。"""
         from utils import call_ollama_with_json_retry
         payload = "```json\n{\"score\": 5}\n```"
-        with patch("utils.ollama_client.ollama.chat", return_value=self._make_response(payload)):
+        with patch("utils.ollama_client._ollama_client.chat", return_value=self._make_response(payload)):
             result = call_ollama_with_json_retry(
                 model="test-model",
                 prompt="評価して",
@@ -684,7 +684,7 @@ class TestCallOllamaWithJsonArrayRetry:
     def test_success_returns_list(self):
         from utils import call_ollama_with_json_array_retry
         payload = json.dumps([{"title": "バリエーション1"}, {"title": "バリエーション2"}])
-        with patch("utils.ollama_client.ollama.chat", return_value=self._make_response(payload)):
+        with patch("utils.ollama_client._ollama_client.chat", return_value=self._make_response(payload)):
             data, ok, err = call_ollama_with_json_array_retry(
                 model="test-model",
                 prompt="バリエーション生成",
@@ -697,7 +697,7 @@ class TestCallOllamaWithJsonArrayRetry:
     def test_non_list_triggers_retry_and_fails(self):
         from utils import call_ollama_with_json_array_retry
         payload = json.dumps({"not": "a list"})
-        with patch("utils.ollama_client.ollama.chat", return_value=self._make_response(payload)), \
+        with patch("utils.ollama_client._ollama_client.chat", return_value=self._make_response(payload)), \
              patch("utils.ollama_client.time.sleep"):
             data, ok, err = call_ollama_with_json_array_retry(
                 model="test-model",
@@ -712,7 +712,7 @@ class TestCallOllamaWithJsonArrayRetry:
     def test_item_missing_key_triggers_retry_and_fails(self):
         from utils import call_ollama_with_json_array_retry
         payload = json.dumps([{"wrong_key": "value"}])
-        with patch("utils.ollama_client.ollama.chat", return_value=self._make_response(payload)), \
+        with patch("utils.ollama_client._ollama_client.chat", return_value=self._make_response(payload)), \
              patch("utils.ollama_client.time.sleep"):
             data, ok, err = call_ollama_with_json_array_retry(
                 model="test-model",
@@ -733,14 +733,14 @@ class TestCallOllamaWithTextRetry:
 
     def test_success_returns_text(self):
         from utils import call_ollama_with_text_retry
-        with patch("utils.ollama_client.ollama.chat", return_value=self._make_response("生成されたテキスト")):
+        with patch("utils.ollama_client._ollama_client.chat", return_value=self._make_response("生成されたテキスト")):
             result = call_ollama_with_text_retry(model="test-model", prompt="リライト")
         assert result["ok"] is True
         assert result["text"] == "生成されたテキスト"
 
     def test_empty_response_triggers_retry_then_fallback(self):
         from utils import call_ollama_with_text_retry
-        with patch("utils.ollama_client.ollama.chat", return_value=self._make_response("")), \
+        with patch("utils.ollama_client._ollama_client.chat", return_value=self._make_response("")), \
              patch("utils.ollama_client.time.sleep"):
             result = call_ollama_with_text_retry(
                 model="test-model",
@@ -754,7 +754,7 @@ class TestCallOllamaWithTextRetry:
     def test_min_length_check(self):
         """min_length=10 を下回る短い出力は失敗扱いになる。"""
         from utils import call_ollama_with_text_retry
-        with patch("utils.ollama_client.ollama.chat", return_value=self._make_response("短い")), \
+        with patch("utils.ollama_client._ollama_client.chat", return_value=self._make_response("短い")), \
              patch("utils.ollama_client.time.sleep"):
             result = call_ollama_with_text_retry(
                 model="test-model",
@@ -766,7 +766,7 @@ class TestCallOllamaWithTextRetry:
 
     def test_exception_returns_fallback(self):
         from utils import call_ollama_with_text_retry
-        with patch("utils.ollama_client.ollama.chat", side_effect=RuntimeError("エラー")), \
+        with patch("utils.ollama_client._ollama_client.chat", side_effect=RuntimeError("エラー")), \
              patch("utils.ollama_client.time.sleep"):
             result = call_ollama_with_text_retry(
                 model="test-model",
@@ -848,7 +848,7 @@ class TestCallOllamaWithJsonRetrySlept:
         from utils import call_ollama_with_json_retry
         bad = "not json"
         good = json.dumps({"score": 1})
-        with patch("utils.ollama_client.ollama.chat", side_effect=[
+        with patch("utils.ollama_client._ollama_client.chat", side_effect=[
             self._make_response(bad),
             self._make_response(good),
         ]) as _, patch("utils.ollama_client.time.sleep") as mock_sleep:
@@ -867,7 +867,7 @@ class TestCallOllamaWithJsonRetrySlept:
         # 2回目: 正常
         bad = "{"
         good = json.dumps({"key": "val"})
-        with patch("utils.ollama_client.ollama.chat", side_effect=[
+        with patch("utils.ollama_client._ollama_client.chat", side_effect=[
             self._make_response(bad),
             self._make_response(good),
         ]), patch("utils.ollama_client.time.sleep"):
@@ -891,7 +891,7 @@ class TestCallOllamaWithJsonArrayRetrySlept:
         from utils import call_ollama_with_json_array_retry
         bad = json.dumps({"not": "list"})
         good = json.dumps([{"title": "ok"}])
-        with patch("utils.ollama_client.ollama.chat", side_effect=[
+        with patch("utils.ollama_client._ollama_client.chat", side_effect=[
             self._make_response(bad),
             self._make_response(good),
         ]), patch("utils.ollama_client.time.sleep") as mock_sleep:
@@ -904,7 +904,7 @@ class TestCallOllamaWithJsonArrayRetrySlept:
     def test_json_decode_error_retry(self):
         import json
         from utils import call_ollama_with_json_array_retry
-        with patch("utils.ollama_client.ollama.chat", side_effect=[
+        with patch("utils.ollama_client._ollama_client.chat", side_effect=[
             self._make_response("{"),           # JSONDecodeError
             self._make_response(json.dumps([{"k": "v"}])),
         ]), patch("utils.ollama_client.time.sleep"):
@@ -924,7 +924,7 @@ class TestCallOllamaWithTextRetrySlept:
 
     def test_sleep_called_on_short_output_retry(self):
         from utils import call_ollama_with_text_retry
-        with patch("utils.ollama_client.ollama.chat", side_effect=[
+        with patch("utils.ollama_client._ollama_client.chat", side_effect=[
             self._make_response("短"),          # min_length=10 未満
             self._make_response("十分に長いテキストです"),
         ]), patch("utils.ollama_client.time.sleep") as mock_sleep:
@@ -1065,7 +1065,7 @@ class TestGetQueryEmbedding:
         rag._QUERY_EMBED_CACHE.clear()
 
         fake_vec = [0.1, 0.2, 0.3]
-        with patch("rag.core.ollama.embeddings", return_value={"embedding": fake_vec}) as mock_emb, \
+        with patch("rag.core._ollama_client.embeddings", return_value={"embedding": fake_vec}) as mock_emb, \
              patch("rag.core.get_setting", return_value="nomic-embed-text"):
             v1 = rag._get_query_embedding("テストクエリ")
             v2 = rag._get_query_embedding("テストクエリ")
@@ -1076,7 +1076,7 @@ class TestGetQueryEmbedding:
     def test_different_queries_call_twice(self):
         import rag
         rag._QUERY_EMBED_CACHE.clear()
-        with patch("rag.core.ollama.embeddings", return_value={"embedding": [0.1]}) as mock_emb, \
+        with patch("rag.core._ollama_client.embeddings", return_value={"embedding": [0.1]}) as mock_emb, \
              patch("rag.core.get_setting", return_value="nomic-embed-text"):
             rag._get_query_embedding("クエリA")
             rag._get_query_embedding("クエリB")
