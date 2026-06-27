@@ -14,9 +14,8 @@ output/
 *.exe
 *.pkg
 
-# Windows ビルドスクリプト・Inno Setup
+# Windows ビルドスクリプト
 localbuild.bat
-InterviewAppSetup.iss
 
 # アプリアイコン（バイナリ）
 
