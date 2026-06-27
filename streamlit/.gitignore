@@ -10,14 +10,13 @@ __pycache__/
 dist/
 build/
 output/
-*.spec
+
 *.exe
 *.pkg
 
 # Windows ビルドスクリプト・Inno Setup
 localbuild.bat
 InterviewAppSetup.iss
-launch.spec
 
 # アプリアイコン（バイナリ）
 app.ico
