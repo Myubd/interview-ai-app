@@ -50,6 +50,13 @@ jobs:
         working-directory: streamlit
         run: pyinstaller launch.spec
 
+        - name: Check dist contents
+          working-directory: streamlit
+          shell: pwsh
+          run: |
+          Write-Host "=== DIST ==="
+          Get-ChildItem dist -Recurse
+
       - name: Install Inno Setup
         run: choco install innosetup -y
 
