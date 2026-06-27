@@ -19,7 +19,6 @@ localbuild.bat
 InterviewAppSetup.iss
 
 # アプリアイコン（バイナリ）
-app.ico
 
 # 仮想環境
 .venv/
