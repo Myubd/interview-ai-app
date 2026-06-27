@@ -41,6 +41,12 @@ uploads/
 .DS_Store
 Thumbs.db
 
+# カバレッジ・テスト
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+
 # エディタ
 .vscode/
 .idea/

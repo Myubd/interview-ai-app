@@ -72,3 +72,9 @@ docker compose up --build
 
 - [Streamlit版 詳細README](./streamlit/README.md)
 - [React+FastAPI版 APIドキュメント](http://localhost:8000/docs)（起動後にアクセス）
+
+---
+
+## ライセンス
+
+[MIT License](./LICENSE) © 2026 Myubd

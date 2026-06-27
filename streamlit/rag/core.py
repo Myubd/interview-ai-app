@@ -18,6 +18,7 @@ RAG の中核ロジック。
 from __future__ import annotations
 
 import logging
+import os
 import re
 from dataclasses import dataclass, field
 
@@ -25,6 +26,10 @@ import numpy as np
 import ollama
 
 from db.settings_repository import get_setting
+
+# Docker / 環境変数でOllamaホストを切り替える（utils/ollama_client.py と同じパターン）
+_OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+_ollama_client = ollama.Client(host=_OLLAMA_HOST)
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +108,7 @@ def embed_texts(texts: list[str]) -> np.ndarray:
 
     def _embed_one(idx_text: tuple[int, str]) -> tuple[int, list]:
         idx, text = idx_text
-        res = ollama.embeddings(model=model, prompt=text)
+        res = _ollama_client.embeddings(model=model, prompt=text)
         return idx, res["embedding"]
 
     MAX_WORKERS = 4
@@ -158,7 +163,7 @@ def _get_query_embedding(query: str) -> np.ndarray:
     cache_key = (model, query)
     if cache_key not in _QUERY_EMBED_CACHE:
         _QUERY_EMBED_CACHE[cache_key] = np.array(
-            ollama.embeddings(model=model, prompt=query)["embedding"], dtype=np.float32
+            _ollama_client.embeddings(model=model, prompt=query)["embedding"], dtype=np.float32
         )
     return _QUERY_EMBED_CACHE[cache_key]
 

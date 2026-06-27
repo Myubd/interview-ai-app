@@ -9,18 +9,30 @@ Ollama LLM呼び出し・リトライ・JSONスキーマ検証ユーティリテ
     call_ollama_with_json_retry()       - JSONオブジェクト返答・リトライ付き
     call_ollama_with_json_array_retry() - JSON配列返答・リトライ付き
     call_ollama_with_text_retry()       - 自由テキスト返答・リトライ付き
+
+[ホスト設定]
+    環境変数 OLLAMA_HOST でOllamaのエンドポイントを切り替えられる。
+    未設定時は http://localhost:11434 を使用する。
+    例: OLLAMA_HOST=http://192.168.1.10:11434 streamlit run app.py
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import time
 
 import ollama
 
 logger = logging.getLogger(__name__)
+
+# ============================================================
+# Ollamaクライアント（OLLAMA_HOST 環境変数対応）
+# ============================================================
+_OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+_ollama_client = ollama.Client(host=_OLLAMA_HOST)
 
 
 # ============================================================
@@ -108,7 +120,7 @@ def call_ollama_with_json_retry(
             # format="json" でOllama側にもJSON出力モードを要求する。
             # プロンプト側の指示と二重になるが、対応モデルでは出力が崩れにくくなり
             # リトライ発生率を下げられる（非対応モデルでも無視されるだけで実害はない）。
-            response = ollama.chat(
+            response = _ollama_client.chat(
                 model=model,
                 messages=[{"role": "user", "content": effective_prompt}],
                 format="json",
@@ -173,7 +185,7 @@ def call_ollama_with_json_array_retry(
     for attempt in range(max_retries + 1):
         effective_prompt = prompt if attempt == 0 else prompt + _RETRY_SUFFIX
         try:
-            response = ollama.chat(
+            response = _ollama_client.chat(
                 model=model,
                 messages=[{"role": "user", "content": effective_prompt}],
                 format="json",
@@ -238,7 +250,7 @@ def call_ollama_with_text_retry(
     last_error: str = ""
     for attempt in range(max_retries + 1):
         try:
-            response = ollama.chat(model=model, messages=[{"role": "user", "content": prompt}])
+            response = _ollama_client.chat(model=model, messages=[{"role": "user", "content": prompt}])
             text = response["message"]["content"].strip()
             if len(text) < min_length:
                 last_error = f"出力が空または短すぎます（{len(text)}文字）。"
