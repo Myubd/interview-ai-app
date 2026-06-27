@@ -61,7 +61,8 @@ jobs:
           if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files (x86)\Inno Setup 7\ISCC.exe" }
           if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 7\ISCC.exe" }
           if (-not (Test-Path $iscc)) { throw "Inno Setup not found" }
-          & $iscc InterviewAppSetup.iss /DAPP_VERSION=${{ steps.version.outputs.VERSION }}
+          $iconPath = (Resolve-Path "app.ico").Path
+          & $iscc InterviewAppSetup.iss /DAPP_VERSION=${{ steps.version.outputs.VERSION }} /DICON_PATH="$iconPath"
 
       - name: Upload Streamlit installer
         uses: actions/upload-artifact@v4
@@ -111,7 +112,7 @@ jobs:
 
       - name: Build EXE
         working-directory: react-fastapi/backend
-        run: pyinstaller launch_fastapi.spec --icon="..\..\streamlit\app.ico"
+        run: pyinstaller launch_fastapi.spec
 
       - name: Install Inno Setup
         run: choco install innosetup -y
@@ -124,7 +125,8 @@ jobs:
           if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files (x86)\Inno Setup 7\ISCC.exe" }
           if (-not (Test-Path $iscc)) { $iscc = "C:\Program Files\Inno Setup 7\ISCC.exe" }
           if (-not (Test-Path $iscc)) { throw "Inno Setup not found" }
-          & $iscc InterviewAppSetupFastAPI.iss /DAPP_VERSION=${{ steps.version.outputs.VERSION }}
+          $iconPath = (Resolve-Path "..\..\streamlit\app.ico").Path
+          & $iscc InterviewAppSetupFastAPI.iss /DAPP_VERSION=${{ steps.version.outputs.VERSION }} /DICON_PATH="$iconPath"
 
       - name: Upload FastAPI installer
         uses: actions/upload-artifact@v4

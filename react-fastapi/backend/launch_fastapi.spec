@@ -75,6 +75,7 @@ exe = EXE(
     strip=False,
     upx=True,
     console=False,
+    icon=os.path.join(SPECPATH, '..', '..', 'streamlit', 'app.ico'),
 )
 
 coll = COLLECT(
