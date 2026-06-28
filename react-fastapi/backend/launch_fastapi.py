@@ -125,11 +125,10 @@ def _open_browser() -> None:
 # ============================================================
 
 def _fix_stdio() -> None:
-    """PyInstaller の console=True でも stdout/stderr が None になる場合の対策。
+    """PyInstaller 環境で stdout/stderr が None になる場合の対策。
 
     uvicorn の logging 設定が isatty() を呼ぶため、
     sys.stdout / sys.stderr が None だと AttributeError でクラッシュする。
-    ここで open(os.devnull) にフォールバックして None を排除する。
     """
     import io
     if sys.stdout is None:
@@ -142,6 +141,19 @@ def _fix_stdio() -> None:
         )
 
 
+def _resolve_db_path() -> str:
+    """DBファイルの保存先をユーザーフォルダに返す。
+
+    Program Files 以下は書き込み禁止のため
+    %APPDATA%\\InterviewApp\\career_support.db に保存する。
+    例: C:\\Users\\username\\AppData\\Roaming\\InterviewApp\\career_support.db
+    """
+    app_data = os.environ.get("APPDATA") or os.path.expanduser("~")
+    db_dir = os.path.join(app_data, "InterviewApp")
+    os.makedirs(db_dir, exist_ok=True)
+    return os.path.join(db_dir, "career_support.db")
+
+
 def main() -> None:
     _fix_stdio()
     _cleanup_old_meipass()
@@ -152,6 +164,9 @@ def main() -> None:
     # 環境変数でパスを通す
     os.environ.setdefault("INTERVIEW_STATIC_DIR", os.path.join(base, "frontend_dist"))
     os.environ.setdefault("PYTHONPATH", base)
+
+    # DBをユーザーフォルダに保存（Program Files は書き込み禁止のため）
+    os.environ.setdefault("INTERVIEW_DB_PATH", _resolve_db_path())
 
     # ブラウザを別スレッドで開く（サーバー起動完了を待ってから）
     threading.Thread(target=_open_browser, daemon=True).start()
