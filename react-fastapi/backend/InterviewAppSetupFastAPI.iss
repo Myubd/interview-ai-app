@@ -9,6 +9,7 @@ SolidCompression=yes
 
 [Files]
 Source: "dist\launch_fastapi\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "app.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Interview App (React+FastAPI)"; Filename: "{app}\launch_fastapi.exe"; IconFilename: "{app}\app.ico"
