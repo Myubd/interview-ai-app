@@ -2,6 +2,9 @@
  * api/client.ts
  * バックエンド REST API への型付きラッパー。
  * SSE は useMockInterview hook で直接 fetch する。
+ *
+ * [変更点]
+ * - DashboardData 型と apiGetDashboard() を追加。
  */
 
 const BASE = '/api/v1'
@@ -58,6 +61,8 @@ export interface MockEvaluation {
   strengths: string[]
   improvements: string[]
   next_steps: string[]
+  overall_summary?: string
+  model_answers?: { question: string; model_answer: string }[]
   ok: boolean
 }
 
@@ -86,6 +91,25 @@ export interface AppSettings {
   chat_model: string
   embed_model: string
   ollama_host: string
+}
+
+/** GET /sessions/dashboard のレスポンス型 */
+export interface ScoreTrendEntry {
+  session_id: number
+  company_name: string | null
+  created_at: string
+  overall_score: number
+  axes: Record<string, number>
+}
+
+export interface DashboardData {
+  total_sessions: number
+  evaluated_sessions: number
+  avg_overall_score: number
+  best_overall_score: number
+  score_trend: ScoreTrendEntry[]
+  axes_avg: Record<string, number>
+  axes_keys: string[]
 }
 
 // ── Health ───────────────────────────────────────────────────
@@ -119,6 +143,9 @@ export const apiExportSession = (id: number): Promise<SessionDetail> =>
 
 export const apiImportSession = (data: Record<string, unknown>): Promise<{ id: number }> =>
   request('/sessions/import', { method: 'POST', body: JSON.stringify({ data }) })
+
+export const apiGetDashboard = (): Promise<DashboardData> =>
+  request('/sessions/dashboard')
 
 // ── Knowledge Bases ──────────────────────────────────────────
 

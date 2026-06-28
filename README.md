@@ -1,17 +1,32 @@
 # 就活インタビューAI
 
-ローカル LLM（Ollama）を使った就活支援アプリ。個人情報を外部に送信せず、完全にオフラインで動作します。
-
-## 構成
-
-| フォルダ | 説明 |
-|---------|------|
-| [`streamlit/`](./streamlit/) | Streamlit 版（全機能）← 現在のメイン |
-| [`react-fastapi/`](./react-fastapi/) | React + FastAPI 版（移植中）|
+ローカル LLM（Ollama）を使った就活支援アプリ。個人情報を外部に送信せず、**完全オフライン**で動作します。
 
 ---
 
-## 機能一覧
+## プロジェクト構成
+
+```mermaid
+graph TD
+    subgraph このリポジトリ
+        A[interview_app/]
+        A --> B[streamlit/<br/>全機能版・現メイン]
+        A --> C[react-fastapi/<br/>移植中]
+        A --> D[shared/<br/>共通ロジック]
+        B -.シンボリックリンク.-> D
+        C -.シンボリックリンク.-> D
+    end
+```
+
+| フォルダ | 説明 |
+|---------|------|
+| [`streamlit/`](./streamlit/) | Streamlit 版（全機能）← **現在のメイン** |
+| [`react-fastapi/`](./react-fastapi/) | React + FastAPI 版（移植中） |
+| [`shared/`](./shared/) | 両版が共有するエンジン・DB・プロンプト |
+
+---
+
+## 機能対応表
 
 | 機能 | Streamlit版 | React+FastAPI版 |
 |------|:-----------:|:---------------:|
@@ -32,7 +47,6 @@
 ### Streamlit版（全機能）
 
 ```bash
-# モデルを取得（初回のみ）
 ollama pull qwen3:8b
 ollama pull nomic-embed-text
 
@@ -45,8 +59,9 @@ streamlit run app.py
 ### React + FastAPI版（Docker）
 
 ```bash
-# モデルを取得（初回のみ）
 cd react-fastapi
+
+# 初回のみ：モデルをコンテナ内でセットアップ
 docker compose --profile setup run --rm model_setup
 
 # 起動
@@ -60,10 +75,10 @@ docker compose up --build
 
 | 項目 | 内容 |
 |------|------|
-| LLM | Ollama（ローカル）|
+| LLM | Ollama（ローカル） |
 | 推奨チャットモデル | qwen3:8b |
 | 推奨埋め込みモデル | nomic-embed-text |
-| データ保存 | SQLite（ローカルのみ）|
+| データ保存 | SQLite（ローカルのみ） |
 | 外部送信 | **なし** |
 
 ---
@@ -71,6 +86,7 @@ docker compose up --build
 ## ドキュメント
 
 - [Streamlit版 詳細README](./streamlit/README.md)
+- [React+FastAPI版 詳細README](./react-fastapi/README.md)
 - [React+FastAPI版 APIドキュメント](http://localhost:8000/docs)（起動後にアクセス）
 
 ---

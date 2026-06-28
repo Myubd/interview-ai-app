@@ -2,6 +2,9 @@
  * components/Sidebar.tsx
  * React版のページナビゲーション。
  * Streamlit 版に残る機能はリンクでなく外部遷移ボタンとして表示。
+ *
+ * [変更点]
+ * - ダッシュボードページへのナビゲーション項目を追加。
  */
 import React from 'react'
 import { NavLink } from 'react-router-dom'
@@ -10,6 +13,7 @@ import {
   Home,
   Mic2,
   History,
+  BarChart2,
   Database,
   Settings,
   ExternalLink,
@@ -23,11 +27,12 @@ interface NavItem {
 }
 
 const REACT_PAGES: NavItem[] = [
-  { to: '/',               icon: <Home className="w-5 h-5" />,     label: 'ホーム' },
-  { to: '/mock-interview', icon: <Mic2 className="w-5 h-5" />,     label: 'AI模擬面接' },
-  { to: '/history',        icon: <History className="w-5 h-5" />,  label: '面接履歴' },
-  { to: '/knowledge',      icon: <Database className="w-5 h-5" />, label: 'ナレッジベース' },
-  { to: '/settings',       icon: <Settings className="w-5 h-5" />, label: '設定' },
+  { to: '/',               icon: <Home className="w-5 h-5" />,      label: 'ホーム' },
+  { to: '/mock-interview', icon: <Mic2 className="w-5 h-5" />,      label: 'AI模擬面接' },
+  { to: '/history',        icon: <History className="w-5 h-5" />,   label: '面接履歴' },
+  { to: '/dashboard',      icon: <BarChart2 className="w-5 h-5" />, label: 'ダッシュボード' },
+  { to: '/knowledge',      icon: <Database className="w-5 h-5" />,  label: 'ナレッジベース' },
+  { to: '/settings',       icon: <Settings className="w-5 h-5" />,  label: '設定' },
 ]
 
 // Streamlitに残る機能

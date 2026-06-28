@@ -27,6 +27,9 @@ react-fastapi/frontend/.vite/
 .venv/
 venv/
 env/
+.env
+.env.local
+*.env
 
 # ============================================================
 # ローカルDB（個人情報を含む可能性があるため除外）

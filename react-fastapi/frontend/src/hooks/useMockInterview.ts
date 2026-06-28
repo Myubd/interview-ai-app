@@ -11,7 +11,12 @@
  */
 import { useState, useCallback, useRef } from 'react'
 import type { Message, MockEvaluation } from '@/api/client'
-import { apiStartMockInterview, apiEvaluateMockInterview } from '@/api/client'
+import {
+  apiStartMockInterview,
+  apiEvaluateMockInterview,
+  apiCreateSession,
+  apiUpdateSession,
+} from '@/api/client'
 
 export type InterviewStatus =
   | 'idle'
@@ -34,6 +39,7 @@ export interface MockInterviewState {
   profileText: string
   evaluation: MockEvaluation | null
   error: string | null
+  sessionId: number | null   // 保存済みセッションID
 }
 
 interface StartOptions {
@@ -81,6 +87,7 @@ export function useMockInterview() {
     profileText: '',
     evaluation: null,
     error: null,
+    sessionId: null,
   }
 
   const [state, setState] = useState<MockInterviewState>(INITIAL)
@@ -100,6 +107,13 @@ export function useMockInterview() {
   const start = useCallback(async (options: StartOptions) => {
     setStateSync(() => ({ ...INITIAL, status: 'starting' }))
     try {
+      // セッションをDBに先行作成
+      const sessionRes = await apiCreateSession({
+        profile_text: options.profileText,
+        session_type: 'mock',
+      })
+      const sessionId = sessionRes.id
+
       const res = await apiStartMockInterview({
         industry_key: options.industryKey,
         persona_key: options.personaKey,
@@ -117,6 +131,7 @@ export function useMockInterview() {
         industryKey: options.industryKey,
         personaKey: options.personaKey,
         profileText: options.profileText,
+        sessionId,
       }))
     } catch (err) {
       setStateSync(s => ({ ...s, status: 'error', error: String(err) }))
@@ -225,6 +240,20 @@ export function useMockInterview() {
         profile_text: cur.profileText,
       })
       setStateSync(s => ({ ...s, status: 'evaluated', evaluation: ev }))
+
+      // ── セッションにメッセージ履歴・評価結果を保存 ──────────
+      if (cur.sessionId != null) {
+        try {
+          await apiUpdateSession(cur.sessionId, {
+            messages: cur.messages,
+            mock_evaluation: ev,
+            interview_complete: true,
+          })
+        } catch (saveErr) {
+          // 保存失敗は面接体験を壊さないようコンソールに留める
+          console.warn('[useMockInterview] セッション保存に失敗しました:', saveErr)
+        }
+      }
     } catch (err) {
       setStateSync(s => ({ ...s, status: 'error', error: String(err) }))
     }

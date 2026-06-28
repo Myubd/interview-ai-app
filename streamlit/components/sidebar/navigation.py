@@ -2,6 +2,9 @@
 components/sidebar/navigation.py
 ---------------------------------
 サイドバーのバージョン表示・警告バナー・ナビゲーションボタンを描画する。
+
+[変更点]
+- ダッシュボードページへのナビゲーション項目を追加。
 """
 
 import streamlit as st
@@ -45,13 +48,14 @@ def render_navigation() -> None:
     st.subheader("サイドバー")
 
     _nav_items = [
-        ("📄", "自己PR作成", "interview"),
+        ("📄", "自己PR作成",          "interview"),
         ("🤖", "AIキャリアアドバイザー", "career_advisor"),
-        ("📊", "性格診断", "personality"),
-        ("🎯", "想定質問生成", "predict_questions"),
-        ("🎤", "AI模擬面接", "mock_interview"),
-        ("🏢", "企業比較マトリクス", "company_matrix"),
-        ("✅", "面接履歴", "history"),
+        ("📊", "性格診断",             "personality"),
+        ("🎯", "想定質問生成",          "predict_questions"),
+        ("🎤", "AI模擬面接",           "mock_interview"),
+        ("🏢", "企業比較マトリクス",    "company_matrix"),
+        ("📈", "ダッシュボード",        "dashboard"),
+        ("✅", "面接履歴",             "history"),
     ]
     for _icon, _label, _mode in _nav_items:
         _is_current = st.session_state.app_mode == _mode

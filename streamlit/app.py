@@ -17,6 +17,7 @@ from page_modules.mock_interview import render as render_mock_interview
 from page_modules.company_matrix_page import render_company_matrix
 from page_modules.predict_questions_page import render_predict_questions
 from page_modules.history_page import render_history
+from page_modules.dashboard_page import render as render_dashboard
 from page_modules.interview import render as render_interview, build_conversation_history
 from state.initializer import init_session_state
 
@@ -57,6 +58,10 @@ if mode == "history":
 
 if mode == "company_matrix":
     render_company_matrix(model_name, build_conversation_history)
+    st.stop()
+
+if mode == "dashboard":
+    render_dashboard()
     st.stop()
 
 # デフォルト: interview

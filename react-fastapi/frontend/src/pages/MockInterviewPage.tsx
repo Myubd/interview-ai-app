@@ -310,6 +310,29 @@ const EvalPanel: React.FC<{
           </ul>
         </Card>
       )}
+
+      {ev.overall_summary && (
+        <Card className="p-4 mt-4">
+          <p className="text-xs font-semibold text-slate-600 mb-2">総合コメント</p>
+          <p className="text-xs text-slate-700 leading-relaxed">{ev.overall_summary}</p>
+        </Card>
+      )}
+
+      {(ev.model_answers ?? []).length > 0 && (
+        <Card className="p-4 mt-4">
+          <p className="text-xs font-semibold text-violet-700 mb-3">模範回答例</p>
+          <div className="space-y-4">
+            {ev.model_answers!.map((item, i) => (
+              <div key={i}>
+                <p className="text-xs font-medium text-slate-600 mb-1">Q. {item.question}</p>
+                <p className="text-xs text-slate-700 bg-violet-50 rounded-lg px-3 py-2 leading-relaxed">
+                  {item.model_answer}
+                </p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   )
 }
