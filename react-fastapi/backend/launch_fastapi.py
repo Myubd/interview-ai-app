@@ -124,7 +124,26 @@ def _open_browser() -> None:
 # メイン
 # ============================================================
 
+def _fix_stdio() -> None:
+    """PyInstaller の console=True でも stdout/stderr が None になる場合の対策。
+
+    uvicorn の logging 設定が isatty() を呼ぶため、
+    sys.stdout / sys.stderr が None だと AttributeError でクラッシュする。
+    ここで open(os.devnull) にフォールバックして None を排除する。
+    """
+    import io
+    if sys.stdout is None:
+        sys.stdout = io.TextIOWrapper(
+            open(os.devnull, "wb"), encoding="utf-8", errors="replace"
+        )
+    if sys.stderr is None:
+        sys.stderr = io.TextIOWrapper(
+            open(os.devnull, "wb"), encoding="utf-8", errors="replace"
+        )
+
+
 def main() -> None:
+    _fix_stdio()
     _cleanup_old_meipass()
     _kill_existing_process(BACKEND_PORT)
 
