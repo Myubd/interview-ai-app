@@ -32,6 +32,8 @@ a = Analysis(
         ('shared', 'shared'),
         # フロントエンド（React ビルド済み）
         ('../frontend/dist', 'frontend_dist'),
+        # アイコン（インストーラーのショートカット用）
+        ('app.ico', '.'),
     ],
     hiddenimports=[
         'uvicorn', 'uvicorn.logging', 'uvicorn.loops', 'uvicorn.loops.auto',
@@ -74,8 +76,8 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=True,
-    icon=os.path.join(SPECPATH, '..', '..', 'streamlit', 'app.ico'),
+    console=False,
+    icon=os.path.join(SPECPATH, 'app.ico'),
 )
 
 coll = COLLECT(
