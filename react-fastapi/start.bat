@@ -73,7 +73,7 @@ if not exist ".venv" (
     python -m venv .venv
     .venv\Scripts\pip install -q -r requirements.txt
 )
-start "FastAPI Backend" /min .venv\Scripts\uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+start "FastAPI Backend" .venv\Scripts\uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 echo [ OK ]  Backend started.
 
 :: Start frontend
@@ -83,7 +83,7 @@ if not exist "node_modules" (
     echo [INFO]  Running npm install...
     npm install --silent
 )
-start "Vite Frontend" /min npm run dev
+start "Vite Frontend" npm run dev
 echo [ OK ]  Frontend started.
 
 :: Done

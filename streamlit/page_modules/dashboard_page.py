@@ -27,7 +27,7 @@ import pandas as pd
 import streamlit as st
 
 from session_io import list_sessions
-from shared.db import session_repository as session_repo
+from db import session_repository as session_repo
 
 # 軸キー → 日本語ラベル
 AXIS_LABELS: dict[str, str] = {
