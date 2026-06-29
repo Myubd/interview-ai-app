@@ -19,6 +19,7 @@ SQLite接続管理とスキーマ初期化を行うモジュール。
 from __future__ import annotations
 
 import os
+import sys
 import sqlite3
 import logging
 from contextlib import contextmanager
@@ -36,12 +37,27 @@ def _resolve_db_path() -> str:
     """環境変数 INTERVIEW_DB_PATH が設定されていればそれを使い、なければデフォルトパスを返す。
 
     ":memory:" を渡すとインメモリDBになる（テスト用途）。
+
+    PyInstaller でビルドした .exe の場合、__file__ は読み取り専用の
+    _internal フォルダ（例: C:\\Program Files (x86)\\InterviewApp\\_internal\\）
+    を指すため、DBファイルの作成に失敗する。
+    sys.frozen が True のときは書き込み可能な %APPDATA%\\InterviewApp\\db\\ を使う。
     """
     env_path = os.environ.get("INTERVIEW_DB_PATH", "")
     if env_path:
         logger.debug("DB path from env: %s", env_path)
         return env_path
-    return str(_DEFAULT_DB_PATH)
+
+    # PyInstaller ビルド時: sys.frozen = True がセットされる
+    if getattr(sys, "frozen", False):
+        appdata = os.environ.get("APPDATA") or str(Path.home())
+        base = Path(appdata) / "InterviewApp" / "db"
+        logger.debug("Running as frozen executable, using APPDATA: %s", base)
+    else:
+        # 開発時: database.py と同じフォルダ（従来通り）
+        base = _DB_DIR
+
+    return str(base / "career_support.db")
 
 
 SCHEMA_SQL = """
