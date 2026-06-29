@@ -46,6 +46,12 @@ jobs:
         run: |
           echo "${{ steps.version.outputs.FULL_VERSION }}" > version.txt
 
+      - name: Download Ollama installer
+        working-directory: streamlit
+        run: |
+          Invoke-WebRequest -Uri https://ollama.com/download/OllamaSetup.exe `
+            -OutFile OllamaSetup.exe
+
       - name: Build EXE
         working-directory: streamlit
         run: pyinstaller launch.spec
@@ -118,6 +124,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller==6.21.0
+
+      - name: Download Ollama installer
+        working-directory: react-fastapi/backend
+        run: |
+          Invoke-WebRequest -Uri https://ollama.com/download/OllamaSetup.exe `
+            -OutFile OllamaSetup.exe
 
       - name: Build EXE
         working-directory: react-fastapi/backend

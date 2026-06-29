@@ -64,17 +64,25 @@ graph TB
 
 ## セットアップ
 
-### 前提条件
+### インストーラー版（推奨・Windows）
+
+[Releases](../../../releases) からインストーラーをダウンロードして実行するだけです。  
+**Ollama のインストール・起動は自動で行われます。**
+
+初回起動後、以下のコマンドで LLM モデルをダウンロードしてください。
 
 ```bash
-# Ollama をインストール後、モデルを取得（初回のみ）
 ollama pull qwen3:8b
 ollama pull nomic-embed-text
 ```
 
-### 起動
+### 開発者向け（ソースから起動）
 
 ```bash
+# Ollama を手動でインストール: https://ollama.com
+ollama pull qwen3:8b
+ollama pull nomic-embed-text
+
 cd streamlit
 pip install -r requirements.txt
 streamlit run app.py

@@ -44,9 +44,19 @@ graph TD
 
 ## クイックスタート
 
-### Streamlit版（全機能）
+### インストーラー版（推奨・Windows）
+
+[Releases](../../releases) からインストーラーをダウンロードして実行するだけです。  
+**Ollama のインストール・起動は自動で行われます。**
+
+> ただし、LLM モデルの初回ダウンロードは別途必要です（後述）。
+
+### 開発者向け（ソースから起動）
+
+#### Streamlit版（全機能）
 
 ```bash
+# Ollama を手動でインストール: https://ollama.com
 ollama pull qwen3:8b
 ollama pull nomic-embed-text
 
@@ -56,7 +66,7 @@ streamlit run app.py
 # → http://localhost:8501
 ```
 
-### React + FastAPI版（Docker）
+#### React + FastAPI版（Docker）
 
 ```bash
 cd react-fastapi
@@ -67,6 +77,17 @@ docker compose --profile setup run --rm model_setup
 # 起動
 docker compose up --build
 # → http://localhost:3000
+```
+
+---
+
+## モデルのセットアップ（初回のみ）
+
+インストーラー版・開発者版いずれも、**LLM モデルの初回ダウンロードは手動**で行ってください。
+
+```bash
+ollama pull qwen3:8b          # チャット・生成用
+ollama pull nomic-embed-text  # 埋め込み（RAG）用
 ```
 
 ---

@@ -60,15 +60,19 @@ graph LR
 
 ## セットアップ
 
-### 前提条件
+### インストーラー版（推奨・Windows）
+
+[Releases](../../../../releases) からインストーラーをダウンロードして実行するだけです。  
+**Ollama のインストール・起動は自動で行われます。**
+
+初回起動後、以下のコマンドで LLM モデルをダウンロードしてください。
 
 ```bash
-# Ollama をインストール後、モデルを取得（初回のみ）
 ollama pull qwen3:8b
 ollama pull nomic-embed-text
 ```
 
-### Docker で起動（推奨）
+### 開発者向け（Docker・推奨）
 
 ```bash
 cd react-fastapi
@@ -81,7 +85,7 @@ docker compose up --build
 # → http://localhost:3000
 ```
 
-### ローカルで起動
+### 開発者向け（ローカル起動）
 
 ```bash
 cd react-fastapi
