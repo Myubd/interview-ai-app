@@ -137,11 +137,9 @@ def _install_ollama() -> bool:
 
     _show_message(
         "Ollama をインストールしています",
-        "Ollama がインストールされていないため、自動的にダウンロード・インストールします。
-"
-        "ダウンロードには数分かかる場合があります。
-
-しばらくお待ちください…",
+        "Ollama がインストールされていないため、自動的にダウンロード・インストールします。\n"
+        "ダウンロードには数分かかる場合があります。\n\n"
+        "しばらくお待ちください…",
     )
 
     tmp_dir = tempfile.mkdtemp()
@@ -152,10 +150,8 @@ def _install_ollama() -> bool:
     except Exception as e:
         _show_message(
             "Ollama ダウンロード失敗",
-            f"Ollama のダウンロードに失敗しました: {e}
-"
-            "インターネット接続を確認するか、
-"
+            f"Ollama のダウンロードに失敗しました: {e}\n"
+            "インターネット接続を確認するか、\n"
             "https://ollama.com から手動でインストールしてください。",
             error=True,
         )
@@ -170,8 +166,7 @@ def _install_ollama() -> bool:
     except subprocess.CalledProcessError as e:
         _show_message(
             "Ollama インストール失敗",
-            f"Ollama のインストールに失敗しました（終了コード: {e.returncode}）。
-"
+            f"Ollama のインストールに失敗しました（終了コード: {e.returncode}）。\n"
             "https://ollama.com から手動でインストールしてください。",
             error=True,
         )
@@ -179,15 +174,13 @@ def _install_ollama() -> bool:
     except Exception as e:
         _show_message(
             "Ollama インストールエラー",
-            f"インストール中にエラーが発生しました: {e}
-"
+            f"インストール中にエラーが発生しました: {e}\n"
             "https://ollama.com から手動でインストールしてください。",
             error=True,
         )
         return False
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
-
 
 
 def _start_ollama_service() -> bool:
