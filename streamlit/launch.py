@@ -485,7 +485,33 @@ def _ensure_ollama() -> None:
 # メイン
 # ============================================================
 
+def _fix_stdio() -> None:
+    """PyInstaller 環境で stdout/stderr が None になる場合の対策。"""
+    import io as _io
+    log_dir = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "InterviewApp")
+    os.makedirs(log_dir, exist_ok=True)
+    log_path = os.path.join(log_dir, "launch.log")
+    try:
+        log_file = open(log_path, "w", encoding="utf-8", errors="replace")
+        if sys.stdout is None:
+            sys.stdout = log_file
+        if sys.stderr is None:
+            sys.stderr = log_file
+    except Exception:
+        # ログファイルが開けない場合は devnull にフォールバック
+        if sys.stdout is None:
+            sys.stdout = _io.TextIOWrapper(
+                open(os.devnull, "wb"), encoding="utf-8", errors="replace"
+            )
+        if sys.stderr is None:
+            sys.stderr = _io.TextIOWrapper(
+                open(os.devnull, "wb"), encoding="utf-8", errors="replace"
+            )
+
+
 def main():
+    _fix_stdio()
+
     _log("=" * 60, "INFO")
     _log("Interview App を起動しています", "INFO")
     _log("=" * 60, "INFO")

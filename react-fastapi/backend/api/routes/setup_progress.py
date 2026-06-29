@@ -84,7 +84,7 @@ async def stream_setup_progress() -> StreamingResponse:
 
             # 完了 or エラーでキューが空になったら終了
             if (_done_event.is_set() or _error_event.is_set()) and _progress_queue.empty():
-                status = "error" if _error_event.is_set() else "done"
+                status = "error_event" if _error_event.is_set() else "done"
                 yield f"event: {status}\ndata: {{}}\n\n"
                 return
 
