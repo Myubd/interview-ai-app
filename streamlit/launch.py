@@ -500,6 +500,32 @@ def _ensure_ollama() -> None:
 # メイン
 # ============================================================
 
+def _suppress_streamlit_email_prompt() -> None:
+    """Streamlit 初回起動時のメールアドレス入力プロンプトを抑制する。
+
+    Streamlit は ~/.streamlit/credentials.toml が存在しない場合、
+    CLIで標準入力へのメールアドレス入力を求めるオンボーディングフローに入る。
+    PyInstaller の exe から stcli.main() を呼ぶと stdin が存在しないため
+    アプリがそこでハングまたはエラーになる。
+
+    対策: credentials.toml を事前に作成し、email を空文字に設定しておく。
+    すでにファイルが存在する場合は上書きしない（ユーザーの設定を尊重）。
+    """
+    streamlit_dir = os.path.join(os.path.expanduser("~"), ".streamlit")
+    credentials_path = os.path.join(streamlit_dir, "credentials.toml")
+
+    if os.path.isfile(credentials_path):
+        return  # すでに存在する場合はスキップ
+
+    try:
+        os.makedirs(streamlit_dir, exist_ok=True)
+        with open(credentials_path, "w", encoding="utf-8") as f:
+            f.write('[general]\nemail = ""\n')
+        _log("Streamlit credentials.toml を作成しました（メールプロンプト抑制）", "INFO")
+    except Exception as e:
+        _log(f"credentials.toml の作成に失敗しました（無視して続行）: {e}", "WARNING")
+
+
 def _fix_stdio() -> None:
     """PyInstaller 環境で stdout/stderr が None になる場合の対策。"""
     import io as _io
@@ -543,11 +569,18 @@ def main():
     _log("Streamlit を起動中...", "INFO")
     _log("=" * 60, "INFO")
 
+    # Streamlit 初回起動時のメールアドレス入力プロンプトを抑制する。
+    # ~/.streamlit/credentials.toml が存在しない場合、Streamlit CLI は
+    # 標準入力でメールアドレスを尋ねるオンボーディングフローに入るため、
+    # 事前に空メールの credentials.toml を作成してスキップする。
+    _suppress_streamlit_email_prompt()
+
     sys.argv = [
         "streamlit",
         "run",
         app_path,
         "--global.developmentMode=false",
+        "--server.headless=true",   # headless モードでもプロンプト抑制を二重保護
     ]
     sys.exit(stcli.main())
 

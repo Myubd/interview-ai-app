@@ -611,7 +611,23 @@ def main() -> None:
     os.environ.setdefault("PYTHONPATH", base)
     os.environ.setdefault("INTERVIEW_DB_PATH", _resolve_db_path())
 
-    threading.Thread(target=_open_browser, daemon=True).start()
+    # Ollama セットアップが成功した場合のみブラウザを開く
+    # （setup_error がセットされた場合はユーザーがエラーメッセージを確認できるよう
+    #   ブラウザを開かない）
+    def _open_browser_if_setup_ok() -> None:
+        # setup_done か setup_error のどちらかが立つまで待つ（最大90秒）
+        for _ in range(180):
+            if setup_done.is_set():
+                _open_browser()
+                return
+            if setup_error.is_set():
+                _log("Ollama セットアップに失敗したためブラウザを開きません", "WARNING")
+                return
+            time.sleep(0.5)
+        # タイムアウト時は開いてしまう（Ollamaなしでも起動自体はできるため）
+        _open_browser()
+
+    threading.Thread(target=_open_browser_if_setup_ok, daemon=True).start()
 
     _log("FastAPI サーバーを起動中...", "INFO")
     _log("=" * 60, "INFO")
