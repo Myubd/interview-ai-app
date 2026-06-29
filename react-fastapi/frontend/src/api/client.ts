@@ -1,10 +1,7 @@
 /**
  * api/client.ts
  * バックエンド REST API への型付きラッパー。
- * SSE は useMockInterview hook で直接 fetch する。
- *
- * [変更点]
- * - DashboardData 型と apiGetDashboard() を追加。
+ * SSE は useMockInterview hook と useSetupProgress hook で直接 fetch する。
  */
 
 const BASE = '/api/v1'
@@ -18,7 +15,6 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const detail = await res.text()
     throw new Error(detail || `HTTP ${res.status}`)
   }
-  // 204 No Content
   if (res.status === 204) return undefined as unknown as T
   return res.json() as Promise<T>
 }
@@ -31,13 +27,24 @@ export interface HealthResponse {
   models: string[]
 }
 
+export interface SetupStatus {
+  done: boolean
+  error: boolean
+}
+
+export interface SetupLogEntry {
+  level: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR'
+  message: string
+  ts: string
+}
+
 /** list_sessions() が返すメタ情報 */
 export interface SessionMeta {
   id: number
   company_name: string | null
   session_type: string | null
   status: string | null
-  interview_complete: number   // SQLite の 0/1
+  interview_complete: number
   has_mock_evaluation: number
   created_at: string
   updated_at: string
@@ -93,7 +100,6 @@ export interface AppSettings {
   ollama_host: string
 }
 
-/** GET /sessions/dashboard のレスポンス型 */
 export interface ScoreTrendEntry {
   session_id: number
   company_name: string | null
@@ -116,6 +122,54 @@ export interface DashboardData {
 
 export const apiHealth = (): Promise<HealthResponse> =>
   request('/health')
+
+// ── Setup ────────────────────────────────────────────────────
+
+export const apiGetSetupStatus = (): Promise<SetupStatus> =>
+  request('/setup/status')
+
+/**
+ * Ollama セットアップ進捗を SSE でストリーミング受信する。
+ *
+ * @param onLog     ログ行を受け取るコールバック
+ * @param onDone    完了時のコールバック
+ * @param onError   エラー時のコールバック
+ * @returns         接続を閉じる関数
+ */
+export function subscribeSetupProgress(
+  onLog: (entry: SetupLogEntry) => void,
+  onDone: () => void,
+  onError: () => void,
+): () => void {
+  const es = new EventSource(`${BASE}/setup/progress`)
+
+  es.addEventListener('log', (e: MessageEvent) => {
+    try {
+      const entry: SetupLogEntry = JSON.parse(e.data)
+      onLog(entry)
+    } catch {
+      // ignore parse errors
+    }
+  })
+
+  es.addEventListener('done', () => {
+    es.close()
+    onDone()
+  })
+
+  es.addEventListener('error_event', () => {
+    es.close()
+    onError()
+  })
+
+  // EventSource の組み込み onerror（接続切れなど）
+  es.onerror = () => {
+    es.close()
+    onError()
+  }
+
+  return () => es.close()
+}
 
 // ── Sessions ─────────────────────────────────────────────────
 

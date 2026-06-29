@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { Sidebar } from '@/components/Sidebar'
 import { HomePage } from '@/pages/HomePage'
@@ -6,8 +7,15 @@ import { HistoryPage } from '@/pages/HistoryPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { KnowledgePage } from '@/pages/KnowledgePage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import { SetupProgressPage } from '@/pages/SetupProgressPage'
 
 export default function App() {
+  const [setupReady, setSetupReady] = useState(false)
+
+  if (!setupReady) {
+    return <SetupProgressPage onComplete={() => setSetupReady(true)} />
+  }
+
   return (
     <div className="flex min-h-screen bg-surface-50 font-sans">
       <Sidebar />

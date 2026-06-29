@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from api.routes import health, mock_interview, sessions, knowledge_base, settings
+from api.routes import setup_progress   # ← 追加
 from db.database import init_db
 
 logging.basicConfig(level=logging.INFO)
@@ -30,8 +31,16 @@ TAGS_METADATA = [
         "description": "サーバーと Ollama の疎通確認。起動直後に叩いて LLM が使える状態か確認する。",
     },
     {
+        "name": "setup",
+        "description": (
+            "Ollama のインストール・モデルダウンロードの進捗確認。\n\n"
+            "- `GET /setup/status` : 完了フラグをポーリング\n"
+            "- `GET /setup/progress` : SSE でリアルタイム進捗を受信"
+        ),
+    },
+    {
         "name": "mock-interview",
-        "description": """
+        "description": """\
 **AI模擬面接**のコアエンドポイント。
 
 - `POST /start` でセッションを開始し最初の質問を取得
@@ -70,7 +79,6 @@ async def lifespan(app: FastAPI):
     init_db()
     logger.info("DB initialized")
     yield
-    # 終了時の処理が必要であればここに追加
 
 
 # ============================================================
@@ -79,7 +87,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     lifespan=lifespan,
     title="就活インタビューAI API",
-    description="""
+    description="""\
 ## 概要
 ローカル LLM（Ollama）を使った就活支援バックエンド。
 面接練習・履歴書管理・RAG検索など、個人情報を外部に送信せずに動作します。
@@ -105,16 +113,12 @@ EventSource または fetch + ReadableStream で受け取ってください。
         "name": "就活インタビューAI",
         "url": "https://github.com/your-repo/interview-app",
     },
-    license_info={
-        "name": "MIT",
-    },
+    license_info={"name": "MIT"},
     docs_url="/docs",
     redoc_url="/redoc",
 )
 
 # ── CORS ────────────────────────────────────────────────────
-# 環境変数 ALLOWED_ORIGINS でカンマ区切りに複数指定可能。
-# 未設定時はローカル開発用のデフォルト値を使用する。
 _raw_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000")
 _allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 
@@ -126,17 +130,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── DB 初期化（lifespan に移動済み） ─────────────────────────
-
 # ── ルーター登録 ─────────────────────────────────────────────
 app.include_router(health.router,          prefix="/api/v1",                 tags=["health"])
+app.include_router(setup_progress.router,  prefix="/api/v1",                 tags=["setup"])   # ← 追加
 app.include_router(mock_interview.router,  prefix="/api/v1/mock-interview",  tags=["mock-interview"])
 app.include_router(sessions.router,        prefix="/api/v1/sessions",        tags=["sessions"])
 app.include_router(knowledge_base.router,  prefix="/api/v1/knowledge-bases", tags=["knowledge-base"])
 app.include_router(settings.router,        prefix="/api/v1/settings",        tags=["settings"])
 
 # ── 静的ファイル配信（exe ビルド時のみ） ─────────────────────
-# INTERVIEW_STATIC_DIR が設定されている場合、React ビルド済みファイルを配信する
 _static_dir = os.environ.get("INTERVIEW_STATIC_DIR", "")
 if _static_dir and os.path.isdir(_static_dir):
     app.mount("/assets", StaticFiles(directory=os.path.join(_static_dir, "assets")), name="assets")
@@ -146,4 +148,3 @@ if _static_dir and os.path.isdir(_static_dir):
         """API以外のパスはすべてReactのindex.htmlを返す（SPA対応）。"""
         index = os.path.join(_static_dir, "index.html")
         return FileResponse(index)
-

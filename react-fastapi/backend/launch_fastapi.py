@@ -5,15 +5,18 @@ FastAPI版 Interview App のランチャー。
 
 PyInstaller でビルドされた exe から実行されることを想定。
 - Ollama のインストール確認・自動インストール
-- Ollama モデルの自動ダウンロード
+- Ollama モデルの自動ダウンロード（リアルタイム進捗をSSEで配信）
 - uvicorn でバックエンド（FastAPI）を起動
 - フロントエンド（React ビルド済み静的ファイル）をバックエンド経由で配信
 - 起動後にブラウザを自動で開く
 """
 from __future__ import annotations
 
+import io
 import os
 import glob
+import json
+import queue
 import shutil
 import socket
 import subprocess
@@ -41,23 +44,39 @@ REQUIRED_MODELS = [
     "nomic-embed-text",   # RAG用
 ]
 
+# ============================================================
+# グローバル進捗キュー（SSE配信用）
+# ============================================================
+# setup_progress_queue はセットアップの進捗メッセージを格納する。
+# FastAPIのSSEエンドポイントがここからメッセージを取り出して配信する。
+setup_progress_queue: queue.Queue[dict] = queue.Queue()
+setup_done = threading.Event()   # セットアップ完了フラグ
+setup_error = threading.Event()  # セットアップ失敗フラグ
+
 
 # ============================================================
 # ログ・進捗表示
 # ============================================================
 
 def _log(message: str, level: str = "INFO") -> None:
-    """コンソールに色付きでメッセージを出力する。"""
+    """コンソールに色付きでメッセージを出力し、SSEキューにも積む。"""
     colors = {
-        "INFO": "\033[94m",
+        "INFO":    "\033[94m",
         "SUCCESS": "\033[92m",
         "WARNING": "\033[93m",
-        "ERROR": "\033[91m",
+        "ERROR":   "\033[91m",
     }
     reset = "\033[0m"
     color = colors.get(level, "\033[94m")
     timestamp = time.strftime("%H:%M:%S")
     print(f"{color}[{timestamp}] {level:<8}{reset} {message}", flush=True)
+
+    # SSEキューへ積む（フロントエンドに配信される）
+    setup_progress_queue.put({
+        "level":   level,
+        "message": message,
+        "ts":      timestamp,
+    })
 
 
 def _format_bytes(bytes_size: int) -> str:
@@ -160,16 +179,33 @@ def _open_browser() -> None:
 
 
 # ============================================================
+# Ollama パス解決（共通ヘルパー）
+# ============================================================
+
+def _get_ollama_exe() -> str | None:
+    """
+    ollama の実行ファイルパスを返す。
+    PATH → LOCALAPPDATA/Programs/Ollama/ の順で探す。
+    見つからなければ None。
+    """
+    exe = shutil.which("ollama")
+    if exe:
+        return exe
+    local_app_data = os.environ.get("LOCALAPPDATA", "")
+    if local_app_data:
+        candidate = os.path.join(local_app_data, "Programs", "Ollama", "ollama.exe")
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+# ============================================================
 # Ollama インストール確認・自動セットアップ
 # ============================================================
 
 def _is_ollama_installed() -> bool:
-    """Ollama が PATH に存在するか確認する。"""
-    if shutil.which("ollama") is not None:
-        return True
-    local_app_data = os.environ.get("LOCALAPPDATA", "")
-    default_path = os.path.join(local_app_data, "Programs", "Ollama", "ollama.exe")
-    return os.path.isfile(default_path)
+    """Ollama が PATH または既定インストール先に存在するか確認する。"""
+    return _get_ollama_exe() is not None
 
 
 def _is_ollama_running() -> bool:
@@ -189,40 +225,34 @@ def _download_with_progress(url: str, filepath: str) -> bool:
     """ダウンロード進捗を表示しながらファイルをダウンロードする。"""
     try:
         _log("Ollama セットアップファイルをダウンロード中...", "INFO")
-        
+
         class ProgressHook:
             def __init__(self):
                 self.last_update = time.time()
-                self.last_percent = 0
-            
+                self.last_percent = -1
+
             def __call__(self, block_num, block_size, total_size):
                 if total_size < 0:
                     return
-                
-                downloaded = block_num * block_size
-                if downloaded > total_size:
-                    downloaded = total_size
-                
+                downloaded = min(block_num * block_size, total_size)
                 percent = int(100 * downloaded / total_size)
-                
                 now = time.time()
                 if percent != self.last_percent and (now - self.last_update > 0.5 or percent == 100):
                     bar_length = 30
                     filled = int(bar_length * percent / 100)
                     bar = "█" * filled + "░" * (bar_length - filled)
-                    
                     _log(
                         f"  {bar} {percent}% "
                         f"({_format_bytes(downloaded)} / {_format_bytes(total_size)})",
-                        "INFO"
+                        "INFO",
                     )
                     self.last_update = now
                     self.last_percent = percent
-        
+
         urllib.request.urlretrieve(url, filepath, ProgressHook())
         _log("ダウンロード完了", "SUCCESS")
         return True
-    
+
     except Exception as e:
         _log(f"ダウンロード失敗: {e}", "ERROR")
         return False
@@ -264,7 +294,7 @@ def _install_ollama() -> bool:
 
     _log("[2/3] Ollama をインストール中...", "INFO")
     _log("  （インストールウィンドウが表示される場合があります）", "INFO")
-    
+
     try:
         result = subprocess.run(
             [installer, "/verysilent", "/norestart"],
@@ -276,43 +306,37 @@ def _install_ollama() -> bool:
         else:
             _log(f"インストール終了コード: {result.returncode}", "WARNING")
             return False
-    
+
     except subprocess.TimeoutExpired:
         _log("インストール処理がタイムアウトしました", "ERROR")
         return False
-    
     except subprocess.CalledProcessError as e:
         _log(f"インストール失敗（終了コード: {e.returncode}）", "ERROR")
         return False
-    
     except Exception as e:
         _log(f"インストール中にエラー: {e}", "ERROR")
         return False
-    
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
     _log("[3/3] インストール確認中...", "INFO")
-    if _is_ollama_installed():
-        _log("Ollama のインストールが確認できました", "SUCCESS")
-        _log("=" * 60, "INFO")
-        return True
-    else:
-        _log("Ollama がインストールされていません", "ERROR")
-        return False
+    # インストール直後はファイルが書き終わるまで少しかかるためリトライする
+    for _ in range(10):
+        time.sleep(1.0)
+        if _is_ollama_installed():
+            _log("Ollama のインストールが確認できました", "SUCCESS")
+            _log("=" * 60, "INFO")
+            return True
+
+    _log("Ollama がインストールされていません（確認タイムアウト）", "ERROR")
+    return False
 
 
 def _start_ollama_service() -> bool:
     """Ollama サービスをバックグラウンドで起動し、疎通確認するまで待つ。"""
     _log("Ollama サービスを起動中...", "INFO")
-    
-    ollama_exe = shutil.which("ollama")
-    if ollama_exe is None:
-        local_app_data = os.environ.get("LOCALAPPDATA", "")
-        candidate = os.path.join(local_app_data, "Programs", "Ollama", "ollama.exe")
-        if os.path.isfile(candidate):
-            ollama_exe = candidate
 
+    ollama_exe = _get_ollama_exe()
     if ollama_exe is None:
         _log("Ollama の実行ファイルが見つかりません", "ERROR")
         return False
@@ -336,10 +360,9 @@ def _start_ollama_service() -> bool:
             elapsed = (i + 1) * 0.5
             _log(f"Ollama が起動しました（{elapsed:.1f}秒）", "SUCCESS")
             return True
-        
         if (i + 1) % 20 == 0:
-            _log(f"  待機中... {i + 1}秒経過", "INFO")
-    
+            _log(f"  待機中... {(i + 1) * 0.5:.0f}秒経過", "INFO")
+
     _log("Ollama が起動できませんでした（タイムアウト）", "ERROR")
     return False
 
@@ -350,61 +373,95 @@ def _start_ollama_service() -> bool:
 
 def _get_installed_models() -> list[str]:
     """Ollama にインストール済みのモデル一覧を取得する。"""
+    ollama_exe = _get_ollama_exe()
+    if ollama_exe is None:
+        _log("ollama コマンドが見つかりません（モデル一覧取得スキップ）", "WARNING")
+        return []
     try:
         result = subprocess.run(
-            ["ollama", "list"],
+            [ollama_exe, "list"],
             capture_output=True,
             text=True,
             timeout=10,
         )
         if result.returncode != 0:
             return []
-        
         models = []
         for line in result.stdout.splitlines()[1:]:
             parts = line.split()
             if parts:
-                model_name = parts[0]
-                models.append(model_name)
+                models.append(parts[0])
         return models
-    
     except Exception as e:
         _log(f"モデル一覧の取得に失敗: {e}", "WARNING")
         return []
 
 
 def _pull_model(model_name: str) -> bool:
-    """Ollama でモデルをダウンロードする。"""
+    """
+    Ollama でモデルをダウンロードする。
+    ollama pull は \\r で進捗を上書きするため、1バイトずつ読んで行を組み立てる。
+    """
+    ollama_exe = _get_ollama_exe()
+    if ollama_exe is None:
+        _log(f"✗ ollama コマンドが見つかりません（{model_name} スキップ）", "ERROR")
+        return False
+
     _log(f"モデル '{model_name}' をダウンロード中...", "INFO")
-    
+
     try:
         process = subprocess.Popen(
-            ["ollama", "pull", model_name],
+            [ollama_exe, "pull", model_name],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
+            # テキストモードにせず bytes で受け取り、自前でデコードする
         )
-        
-        for line in process.stdout:
-            line = line.strip()
-            if line:
-                if "pulling" in line.lower() or "%" in line:
+
+        buf = bytearray()
+        last_logged_percent = -1
+
+        while True:
+            ch = process.stdout.read(1)
+            if not ch:
+                # EOF — バッファに残っている分を出力
+                if buf.strip():
+                    _log(f"  {buf.decode('utf-8', errors='replace').strip()}", "INFO")
+                break
+
+            if ch in (b"\n", b"\r"):
+                line = buf.decode("utf-8", errors="replace").strip()
+                buf.clear()
+                if not line:
+                    continue
+                # 進捗行（% を含む）は間引いて表示
+                if "%" in line:
+                    # "pulling xxx... 45% ▕████░░░░▏ 2.1 GB/4.7 GB" のような行
+                    try:
+                        pct_str = [t for t in line.split() if t.endswith("%")]
+                        pct = int(pct_str[0].rstrip("%")) if pct_str else -1
+                    except Exception:
+                        pct = -1
+                    # 5% 刻み or 100% だけログに出す
+                    if pct == 100 or (pct >= 0 and pct // 5 != last_logged_percent // 5):
+                        _log(f"  {line}", "INFO")
+                        last_logged_percent = pct
+                else:
                     _log(f"  {line}", "INFO")
-        
+            else:
+                buf.extend(ch)
+
         process.wait(timeout=3600)
-        
+
         if process.returncode == 0:
             _log(f"✓ モデル '{model_name}' のダウンロード完了", "SUCCESS")
             return True
         else:
             _log(f"✗ モデル '{model_name}' のダウンロード失敗（コード: {process.returncode}）", "ERROR")
             return False
-    
+
     except subprocess.TimeoutExpired:
         _log(f"✗ モデル '{model_name}' のダウンロードがタイムアウト", "ERROR")
         return False
-    
     except Exception as e:
         _log(f"✗ モデル '{model_name}' のダウンロード中にエラー: {e}", "ERROR")
         return False
@@ -415,27 +472,26 @@ def _ensure_models() -> None:
     _log("=" * 60, "INFO")
     _log("必要なモデルを確認しています", "INFO")
     _log("=" * 60, "INFO")
-    
+
     installed_models = _get_installed_models()
     _log(f"インストール済みモデル: {', '.join(installed_models) if installed_models else 'なし'}", "INFO")
-    
+
     models_to_download = []
     for model in REQUIRED_MODELS:
         base_name = model.split(":")[0]
         is_installed = any(base_name in m for m in installed_models)
-        
         if is_installed:
             _log(f"✓ モデル '{model}' は既にインストール済み", "SUCCESS")
         else:
             _log(f"✗ モデル '{model}' がインストールされていません", "WARNING")
             models_to_download.append(model)
-    
+
     if models_to_download:
         _log("", "INFO")
         _log(f"{len(models_to_download)} 個のモデルをダウンロード開始...", "WARNING")
         _log("  （数GB のダウンロードのため、数分～十数分かかります）", "INFO")
         _log("", "INFO")
-        
+
         for i, model in enumerate(models_to_download, 1):
             _log(f"[{i}/{len(models_to_download)}] {model}", "INFO")
             success = _pull_model(model)
@@ -443,7 +499,7 @@ def _ensure_models() -> None:
                 _log(f"⚠️  モデル '{model}' のダウンロードに失敗しました", "WARNING")
                 _log(f"   手動でダウンロード: ollama pull {model}", "INFO")
             _log("", "INFO")
-        
+
         _log("=" * 60, "INFO")
     else:
         _log("✓ すべての必要なモデルがインストール済みです", "SUCCESS")
@@ -459,6 +515,7 @@ def _ensure_ollama() -> None:
         success = _install_ollama()
         if not success:
             _log("Ollama のインストールに失敗しました（続行）", "WARNING")
+            setup_error.set()
             return
 
     if _is_ollama_running():
@@ -474,9 +531,11 @@ def _ensure_ollama() -> None:
                 "手動で Ollama を起動してからアプリを再起動してください。",
                 error=True,
             )
+            setup_error.set()
             return
 
     _ensure_models()
+    setup_done.set()
 
 
 # ============================================================
@@ -485,7 +544,6 @@ def _ensure_ollama() -> None:
 
 def _fix_stdio() -> None:
     """PyInstaller 環境で stdout/stderr が None になる場合の対策。"""
-    import io
     if sys.stdout is None:
         sys.stdout = io.TextIOWrapper(
             open(os.devnull, "wb"), encoding="utf-8", errors="replace"
@@ -506,16 +564,19 @@ def _resolve_db_path() -> str:
 
 def main() -> None:
     _fix_stdio()
-    
+
     _log("=" * 60, "INFO")
     _log("Interview App (FastAPI) を起動しています", "INFO")
     _log("=" * 60, "INFO")
-    
+
     _cleanup_old_meipass()
     _kill_existing_process(BACKEND_PORT)
 
-    # Ollama のインストール・起動・モデル準備を保証する
-    _ensure_ollama()
+    # Ollama セットアップをバックグラウンドスレッドで実行
+    # → FastAPI が先に起動してSSEエンドポイントが使えるようになってから
+    #   フロントエンドが進捗を受信できるようにするため
+    setup_thread = threading.Thread(target=_ensure_ollama, daemon=True)
+    setup_thread.start()
 
     base = _base_path()
 
@@ -527,7 +588,7 @@ def main() -> None:
 
     _log("FastAPI サーバーを起動中...", "INFO")
     _log("=" * 60, "INFO")
-    
+
     import uvicorn
     uvicorn.run(
         "main:app",
