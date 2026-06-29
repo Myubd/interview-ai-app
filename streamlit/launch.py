@@ -12,7 +12,6 @@ import streamlit.web.cli as stcli
 # 設定
 # ============================================================
 OLLAMA_HOST = "http://localhost:11434"
-OLLAMA_INSTALLER_NAME = "OllamaSetup.exe"
 
 
 # ============================================================
@@ -130,24 +129,37 @@ def _show_message(title: str, message: str, error: bool = False) -> None:
 
 
 def _install_ollama() -> bool:
-    """同梱の OllamaSetup.exe でサイレントインストールする。"""
-    base = _base_path()
-    installer = os.path.join(base, OLLAMA_INSTALLER_NAME)
+    """Ollama を公式サイトからダウンロードしてサイレントインストールする。"""
+    import tempfile
+    import urllib.request
 
-    if not os.path.isfile(installer):
-        _show_message(
-            "Ollama セットアップファイルが見つかりません",
-            f"同梱の {OLLAMA_INSTALLER_NAME} が見つかりませんでした。\n"
-            "https://ollama.com からインストーラーをダウンロードして手動でインストールしてください。",
-            error=True,
-        )
-        return False
+    OLLAMA_DOWNLOAD_URL = "https://github.com/ollama/ollama/releases/latest/download/OllamaSetup.exe"
 
     _show_message(
         "Ollama をインストールしています",
-        "Ollama がインストールされていないため、自動的にインストールします。\n"
-        "インストール完了後、アプリを起動します。\n\nしばらくお待ちください…",
+        "Ollama がインストールされていないため、自動的にダウンロード・インストールします。
+"
+        "ダウンロードには数分かかる場合があります。
+
+しばらくお待ちください…",
     )
+
+    tmp_dir = tempfile.mkdtemp()
+    installer = os.path.join(tmp_dir, "OllamaSetup.exe")
+
+    try:
+        urllib.request.urlretrieve(OLLAMA_DOWNLOAD_URL, installer)
+    except Exception as e:
+        _show_message(
+            "Ollama ダウンロード失敗",
+            f"Ollama のダウンロードに失敗しました: {e}
+"
+            "インターネット接続を確認するか、
+"
+            "https://ollama.com から手動でインストールしてください。",
+            error=True,
+        )
+        return False
 
     try:
         result = subprocess.run(
@@ -158,7 +170,8 @@ def _install_ollama() -> bool:
     except subprocess.CalledProcessError as e:
         _show_message(
             "Ollama インストール失敗",
-            f"Ollama のインストールに失敗しました（終了コード: {e.returncode}）。\n"
+            f"Ollama のインストールに失敗しました（終了コード: {e.returncode}）。
+"
             "https://ollama.com から手動でインストールしてください。",
             error=True,
         )
@@ -166,11 +179,15 @@ def _install_ollama() -> bool:
     except Exception as e:
         _show_message(
             "Ollama インストールエラー",
-            f"インストール中にエラーが発生しました: {e}\n"
+            f"インストール中にエラーが発生しました: {e}
+"
             "https://ollama.com から手動でインストールしてください。",
             error=True,
         )
         return False
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
 
 
 def _start_ollama_service() -> bool:

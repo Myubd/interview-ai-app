@@ -4,6 +4,7 @@ launch_fastapi.py
 FastAPI版 Interview App のランチャー。
 
 PyInstaller でビルドされた exe から実行されることを想定。
+- Ollama のインストール確認・自動インストール
 - uvicorn でバックエンド（FastAPI）を起動
 - フロントエンド（React ビルド済み静的ファイル）をバックエンド経由で配信
 - 起動後にブラウザを自動で開く
@@ -28,6 +29,9 @@ BACKEND_PORT = 8000
 FRONTEND_PORT = 8000   # バックエンドが静的ファイルも配信するため同じ
 APP_URL = f"http://localhost:{BACKEND_PORT}"
 STARTUP_TIMEOUT = 30   # バックエンド起動待ちタイムアウト（秒）
+
+# Ollama 設定
+OLLAMA_HOST = "http://localhost:11434"
 
 
 # ============================================================
@@ -121,6 +125,169 @@ def _open_browser() -> None:
 
 
 # ============================================================
+# Ollama インストール確認・自動セットアップ
+# ============================================================
+
+def _is_ollama_installed() -> bool:
+    """Ollama が PATH に存在するか、または既知のインストール先にあるか確認する。"""
+    # PATH から探す
+    if shutil.which("ollama") is not None:
+        return True
+    # Windows デフォルトインストール先
+    local_app_data = os.environ.get("LOCALAPPDATA", "")
+    default_path = os.path.join(local_app_data, "Programs", "Ollama", "ollama.exe")
+    return os.path.isfile(default_path)
+
+
+def _is_ollama_running() -> bool:
+    """Ollama の HTTP API に疎通できるか確認する。"""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(1.0)
+            host = OLLAMA_HOST.replace("http://", "").replace("https://", "")
+            hostname, _, port_str = host.partition(":")
+            port = int(port_str) if port_str else 11434
+            return s.connect_ex((hostname, port)) == 0
+    except Exception:
+        return False
+
+
+def _install_ollama() -> bool:
+    """Ollama を公式サイトからダウンロードしてサイレントインストールする。"""
+    import tempfile
+    import urllib.request
+
+    OLLAMA_DOWNLOAD_URL = "https://github.com/ollama/ollama/releases/latest/download/OllamaSetup.exe"
+
+    _show_message(
+        "Ollama をインストールしています",
+        "Ollama がインストールされていないため、自動的にダウンロード・インストールします。
+"
+        "ダウンロードには数分かかる場合があります。
+
+しばらくお待ちください…",
+    )
+
+    tmp_dir = tempfile.mkdtemp()
+    installer = os.path.join(tmp_dir, "OllamaSetup.exe")
+
+    try:
+        urllib.request.urlretrieve(OLLAMA_DOWNLOAD_URL, installer)
+    except Exception as e:
+        _show_message(
+            "Ollama ダウンロード失敗",
+            f"Ollama のダウンロードに失敗しました: {e}
+"
+            "インターネット接続を確認するか、
+"
+            "https://ollama.com から手動でインストールしてください。",
+            error=True,
+        )
+        return False
+
+    try:
+        result = subprocess.run(
+            [installer, "/verysilent", "/norestart"],
+            check=True,
+        )
+        return result.returncode == 0
+    except subprocess.CalledProcessError as e:
+        _show_message(
+            "Ollama インストール失敗",
+            f"Ollama のインストールに失敗しました（終了コード: {e.returncode}）。
+"
+            "https://ollama.com から手動でインストールしてください。",
+            error=True,
+        )
+        return False
+    except Exception as e:
+        _show_message(
+            "Ollama インストールエラー",
+            f"インストール中にエラーが発生しました: {e}
+"
+            "https://ollama.com から手動でインストールしてください。",
+            error=True,
+        )
+        return False
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+
+def _start_ollama_service() -> bool:
+    """Ollama サービスをバックグラウンドで起動し、疎通確認するまで待つ。
+    
+    起動に成功した場合 True を返す。
+    """
+    ollama_exe = shutil.which("ollama")
+    if ollama_exe is None:
+        local_app_data = os.environ.get("LOCALAPPDATA", "")
+        candidate = os.path.join(local_app_data, "Programs", "Ollama", "ollama.exe")
+        if os.path.isfile(candidate):
+            ollama_exe = candidate
+
+    if ollama_exe is None:
+        return False
+
+    try:
+        # `ollama serve` を独立したプロセスとして起動
+        subprocess.Popen(
+            [ollama_exe, "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+        )
+    except Exception:
+        return False
+
+    # 起動待ち（最大 30 秒）
+    for _ in range(60):
+        time.sleep(0.5)
+        if _is_ollama_running():
+            return True
+    return False
+
+
+def _ensure_ollama() -> None:
+    """Ollama のインストール・起動を保証する。
+
+    1. インストール済みかチェック → なければ同梱インストーラーで自動インストール
+    2. 既に起動中かチェック → 起動していなければ `ollama serve` を呼ぶ
+    3. いずれも失敗したらダイアログを出して続行（アプリ自体は起動させる）
+    """
+    if not _is_ollama_installed():
+        success = _install_ollama()
+        if not success:
+            # インストール失敗でも続行（後で手動インストールしてもらう）
+            return
+
+    if _is_ollama_running():
+        return  # 既に起動中
+
+    started = _start_ollama_service()
+    if not started:
+        _show_message(
+            "Ollama を起動できませんでした",
+            "Ollama サービスの起動に失敗しました。\n"
+            "Ollama が正しくインストールされているか確認するか、\n"
+            "手動で Ollama を起動してからアプリを再起動してください。",
+            error=True,
+        )
+
+
+def _show_message(title: str, message: str, error: bool = False) -> None:
+    """Windows のメッセージボックス、または標準エラー出力にメッセージを表示する。"""
+    try:
+        import ctypes
+        icon = 0x10 if error else 0x40  # MB_ICONERROR / MB_ICONINFORMATION
+        ctypes.windll.user32.MessageBoxW(0, message, title, icon)
+    except Exception:
+        stream = sys.stderr if error else sys.stdout
+        if stream:
+            stream.write(f"[{title}] {message}\n")
+
+
+# ============================================================
 # メイン
 # ============================================================
 
@@ -158,6 +325,9 @@ def main() -> None:
     _fix_stdio()
     _cleanup_old_meipass()
     _kill_existing_process(BACKEND_PORT)
+
+    # Ollama のインストール・起動を保証する
+    _ensure_ollama()
 
     base = _base_path()
 

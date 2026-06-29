@@ -34,6 +34,7 @@ a = Analysis(
         ('../frontend/dist', 'frontend_dist'),
         # アイコン（インストーラーのショートカット用）
         ('app.ico', '.'),
+        # Ollama は launch_fastapi.py が起動時にダウンロード・インストールするため同梱不要
     ],
     hiddenimports=[
         'uvicorn', 'uvicorn.logging', 'uvicorn.loops', 'uvicorn.loops.auto',

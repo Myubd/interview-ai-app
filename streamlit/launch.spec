@@ -43,10 +43,7 @@ a = Analysis(
         ('state', 'state'),
         ('utils', 'utils'),
         ('.streamlit', '.streamlit'),
-        # ---- Ollama 同梱インストーラー ----
-        # ビルド前に OllamaSetup.exe を streamlit/ フォルダに配置してください。
-        # ダウンロード: https://ollama.com/download/OllamaSetup.exe
-        ('OllamaSetup.exe', '.'),
+        # Ollama は launch.py が起動時にダウンロード・インストールするため同梱不要
     ],
     hiddenimports=st_hiddenimports + [
         'streamlit', 'ollama', 'updater',
