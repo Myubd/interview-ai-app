@@ -171,37 +171,63 @@ def _is_ollama_running() -> bool:
 
 
 def _download_with_progress(url: str, filepath: str) -> bool:
-    """ダウンロード進捗を表示しながらファイルをダウンロードする。"""
+    """ダウンロード進捗を表示しながらファイルをダウンロードする。
+
+    PyInstaller 環境では certifi の証明書バンドルが同梱されないため、
+    SSL コンテキストを明示的に作成して対応する。
+    """
+    import ssl
+
     try:
         _log("Ollama セットアップファイルをダウンロード中...", "INFO")
 
-        class ProgressHook:
-            def __init__(self):
-                self.last_update = time.time()
-                self.last_percent = -1
+        # PyInstaller 環境での SSL 証明書エラー対策
+        # 1) certifi が使えれば使う
+        # 2) なければ OS の証明書ストアを使う
+        # 3) それも無理なら検証をスキップ（最終手段）
+        ctx: ssl.SSLContext | None = None
+        try:
+            import certifi
+            ctx = ssl.create_default_context(cafile=certifi.where())
+            _log("  SSL: certifi 証明書を使用", "INFO")
+        except ImportError:
+            try:
+                ctx = ssl.create_default_context()
+                _log("  SSL: OS 証明書ストアを使用", "INFO")
+            except Exception:
+                ctx = ssl._create_unverified_context()
+                _log("  SSL: 証明書検証をスキップ（フォールバック）", "WARNING")
 
-            def __call__(self, block_num, block_size, total_size):
-                if total_size < 0:
-                    _log(f"  ダウンロード中... {_format_bytes(block_num * block_size)}", "INFO")
-                    return
-                downloaded = min(block_num * block_size, total_size)
-                percent = int(100 * downloaded / total_size)
-                now = time.time()
-                if percent != self.last_percent and (now - self.last_update > 0.5 or percent == 100):
-                    bar_length = 30
-                    filled = int(bar_length * percent / 100)
-                    bar = "█" * filled + "░" * (bar_length - filled)
-                    _log(
-                        f"  {bar} {percent}% "
-                        f"({_format_bytes(downloaded)} / {_format_bytes(total_size)})",
-                        "INFO",
-                    )
-                    self.last_update = now
-                    self.last_percent = percent
+        opener = urllib.request.build_opener(urllib.request.HTTPSHandler(context=ctx))
+        urllib.request.install_opener(opener)
 
-        urllib.request.urlretrieve(url, filepath, ProgressHook())
+        last_update = time.time()
+        last_percent = -1
+
+        def _progress(block_num: int, block_size: int, total_size: int) -> None:
+            nonlocal last_update, last_percent
+            if total_size <= 0:
+                _log(f"  ダウンロード中... {_format_bytes(block_num * block_size)}", "INFO")
+                return
+            downloaded = min(block_num * block_size, total_size)
+            percent = int(100 * downloaded / total_size)
+            now = time.time()
+            if percent != last_percent and (now - last_update > 0.5 or percent == 100):
+                bar_length = 30
+                filled = int(bar_length * percent / 100)
+                bar = "█" * filled + "░" * (bar_length - filled)
+                _log(
+                    f"  {bar} {percent}% "
+                    f"({_format_bytes(downloaded)} / {_format_bytes(total_size)})",
+                    "INFO",
+                )
+                last_update = now
+                last_percent = percent
+
+        urllib.request.urlretrieve(url, filepath, _progress)
         _log("ダウンロード完了", "SUCCESS")
         return True
+
     except Exception as e:
         _log(f"ダウンロード失敗: {e}", "ERROR")
         return False
@@ -247,26 +273,15 @@ def _install_ollama() -> bool:
     try:
         result = subprocess.run(
             [installer, "/verysilent", "/norestart"],
-            check=True,
+            check=False,
             timeout=300,
         )
-        if result.returncode == 0:
-            _log("Ollama インストール完了", "SUCCESS")
-        else:
-            _log(f"インストール終了コード: {result.returncode}", "WARNING")
+        # 0 = 成功, 3010 = 成功（再起動推奨）
+        if result.returncode not in (0, 3010):
+            _log(f"インストール失敗（終了コード: {result.returncode}）", "ERROR")
+            _show_message("Ollama インストール失敗", f"インストールに失敗しました（終了コード: {result.returncode}）。\n手動でインストール: https://ollama.com", error=True)
             return False
-    except subprocess.TimeoutExpired:
-        _log("インストール処理がタイムアウトしました", "ERROR")
-        _show_message("Ollama インストール失敗", "インストール処理がタイムアウトしました。\n手動でインストール: https://ollama.com", error=True)
-        return False
-    except subprocess.CalledProcessError as e:
-        _log(f"インストール失敗（終了コード: {e.returncode}）", "ERROR")
-        _show_message("Ollama インストール失敗", f"インストールに失敗しました（終了コード: {e.returncode}）。\n手動でインストール: https://ollama.com", error=True)
-        return False
-    except Exception as e:
-        _log(f"インストール中にエラー: {e}", "ERROR")
-        _show_message("Ollama インストールエラー", f"エラー: {e}\n手動でインストール: https://ollama.com", error=True)
-        return False
+        _log("Ollama インストール完了", "SUCCESS")
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
