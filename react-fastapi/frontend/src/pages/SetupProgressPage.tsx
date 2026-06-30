@@ -45,7 +45,19 @@ export const SetupProgressPage: React.FC<Props> = ({ onComplete }) => {
 
   useEffect(() => {
     const unsubscribe = subscribeSetupProgress(
-      (entry) => setLogs(prev => [...prev, entry]),
+      (entry) => setLogs(prev => {
+        // group が付いている行（ダウンロード進捗バーなど）は、
+        // 同じ group の直前の行を上書きして縦に積み上げないようにする
+        if (entry.group) {
+          const idx = prev.findIndex(l => l.group === entry.group)
+          if (idx !== -1) {
+            const next = [...prev]
+            next[idx] = entry
+            return next
+          }
+        }
+        return [...prev, entry]
+      }),
       () => {
         setDone(true)
         setTimeout(onComplete, 1500)

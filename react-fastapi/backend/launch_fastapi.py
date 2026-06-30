@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import io
 import os
+import re
 import glob
 import json
 import queue
@@ -26,6 +27,20 @@ import time
 import webbrowser
 import urllib.request
 import tempfile
+
+# ollama pull が出力する ANSI エスケープシーケンス（カーソル制御・
+# 代替スクリーンモード切替・スピナーの色/移動コードなど）を除去するための
+# 正規表現。例: "\x1b[?2026h", "\x1b[1G", "\x1b[K", "\x1b[A" など。
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]")
+
+
+def _strip_ansi(text: str) -> str:
+    """ANSI エスケープシーケンスと制御文字をテキストから取り除く。"""
+    text = _ANSI_ESCAPE_RE.sub("", text)
+    # スピナーの回転に使われる Braille 文字（⠋⠙⠹...）や残った制御文字も除去
+    text = re.sub(r"[\u2800-\u28FF]", "", text)
+    text = text.replace("\x1b", "")
+    return text.strip()
 
 # ============================================================
 # モジュール多重ロード対策
@@ -75,8 +90,14 @@ setup_error = threading.Event()  # セットアップ失敗フラグ
 # ログ・進捗表示
 # ============================================================
 
-def _log(message: str, level: str = "INFO") -> None:
-    """コンソールに色付きでメッセージを出力し、SSEキューにも積む。"""
+def _log(message: str, level: str = "INFO", group: str | None = None) -> None:
+    """コンソールに色付きでメッセージを出力し、SSEキューにも積む。
+
+    group を指定すると、フロントエンド側では「同じ group の前回行を
+    新しい内容で上書き」する（ダウンロード進捗バーなどを縦に積み上げず、
+    1行を更新し続ける表示にするため）。group が None の通常ログは
+    常に新しい行として追加される。
+    """
     colors = {
         "INFO":    "\033[94m",
         "SUCCESS": "\033[92m",
@@ -93,6 +114,7 @@ def _log(message: str, level: str = "INFO") -> None:
         "level":   level,
         "message": message,
         "ts":      timestamp,
+        "group":   group,
     })
 
 
@@ -276,7 +298,11 @@ def _download_with_progress(url: str, filepath: str) -> bool:
         def _progress(block_num: int, block_size: int, total_size: int) -> None:
             nonlocal last_update, last_percent
             if total_size <= 0:
-                _log(f"  ダウンロード中... {_format_bytes(block_num * block_size)}", "INFO")
+                _log(
+                    f"  ダウンロード中... {_format_bytes(block_num * block_size)}",
+                    "INFO",
+                    group="ollama_installer_download",
+                )
                 return
             downloaded = min(block_num * block_size, total_size)
             percent = int(100 * downloaded / total_size)
@@ -289,6 +315,7 @@ def _download_with_progress(url: str, filepath: str) -> bool:
                     f"  {bar} {percent}% "
                     f"({_format_bytes(downloaded)} / {_format_bytes(total_size)})",
                     "INFO",
+                    group="ollama_installer_download",
                 )
                 last_update = now
                 last_percent = percent
@@ -463,34 +490,47 @@ def _pull_model(model_name: str) -> bool:
 
         buf = bytearray()
         last_logged_percent = -1
+        last_plain_line = ""  # 進捗%を含まない行（"pulling manifest" 等）の重複抑制用
+
+        def _emit(raw_line: str) -> None:
+            nonlocal last_logged_percent, last_plain_line
+
+            line = _strip_ansi(raw_line)
+            if not line:
+                return
+
+            # 進捗行（% を含む）は間引いて表示
+            if "%" in line:
+                # "pulling xxx... 45% ▕████░░░░▏ 2.1 GB/4.7 GB" のような行
+                try:
+                    pct_str = [t for t in line.split() if t.endswith("%")]
+                    pct = int(pct_str[0].rstrip("%")) if pct_str else -1
+                except Exception:
+                    pct = -1
+                # 5% 刻み or 100% だけログに出す
+                if pct == 100 or (pct >= 0 and pct // 5 != last_logged_percent // 5):
+                    _log(f"  {line}", "INFO", group=f"pull:{model_name}")
+                    last_logged_percent = pct
+            else:
+                # スピナーのフレーム違いだけで内容が同じ行（"pulling manifest" 等）は
+                # 連投しない
+                if line == last_plain_line:
+                    return
+                last_plain_line = line
+                _log(f"  {line}", "INFO")
 
         while True:
             ch = process.stdout.read(1)
             if not ch:
                 # EOF — バッファに残っている分を出力
                 if buf.strip():
-                    _log(f"  {buf.decode('utf-8', errors='replace').strip()}", "INFO")
+                    _emit(buf.decode("utf-8", errors="replace"))
                 break
 
             if ch in (b"\n", b"\r"):
-                line = buf.decode("utf-8", errors="replace").strip()
+                raw_line = buf.decode("utf-8", errors="replace")
                 buf.clear()
-                if not line:
-                    continue
-                # 進捗行（% を含む）は間引いて表示
-                if "%" in line:
-                    # "pulling xxx... 45% ▕████░░░░▏ 2.1 GB/4.7 GB" のような行
-                    try:
-                        pct_str = [t for t in line.split() if t.endswith("%")]
-                        pct = int(pct_str[0].rstrip("%")) if pct_str else -1
-                    except Exception:
-                        pct = -1
-                    # 5% 刻み or 100% だけログに出す
-                    if pct == 100 or (pct >= 0 and pct // 5 != last_logged_percent // 5):
-                        _log(f"  {line}", "INFO")
-                        last_logged_percent = pct
-                else:
-                    _log(f"  {line}", "INFO")
+                _emit(raw_line)
             else:
                 buf.extend(ch)
 

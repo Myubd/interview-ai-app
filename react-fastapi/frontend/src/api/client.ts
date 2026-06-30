@@ -36,6 +36,7 @@ export interface SetupLogEntry {
   level: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR'
   message: string
   ts: string
+  group?: string | null
 }
 
 /** list_sessions() が返すメタ情報 */
