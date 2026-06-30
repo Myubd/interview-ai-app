@@ -378,7 +378,26 @@ def _install_ollama() -> bool:
         return False
 
     _log("[2/3] Ollama をインストール中...", "INFO")
-    _log("  （インストールウィンドウが表示される場合があります）", "INFO")
+
+    # インストール中の経過時間をリアルタイム表示するスレッド
+    _install_done = threading.Event()
+    def _show_install_progress() -> None:
+        start = time.time()
+        max_sec = 300  # タイムアウトと合わせる
+        while not _install_done.wait(timeout=2.0):
+            elapsed = int(time.time() - start)
+            ratio = min(elapsed / max_sec, 1.0)
+            bar_len = 30
+            filled = int(bar_len * ratio)
+            bar = "█" * filled + "░" * (bar_len - filled)
+            m, s = divmod(elapsed, 60)
+            _log(
+                f"  {bar} インストール中... {m}分{s:02d}秒経過",
+                "INFO",
+                group="ollama_install_progress",
+            )
+    progress_thread = threading.Thread(target=_show_install_progress, daemon=True)
+    progress_thread.start()
 
     try:
         result = subprocess.run(
@@ -386,6 +405,8 @@ def _install_ollama() -> bool:
             check=False,
             timeout=300,
         )
+        _install_done.set()
+        progress_thread.join(timeout=3)
         # 0 = 成功, 3010 = 成功（再起動推奨）
         if result.returncode not in (0, 3010):
             _log(f"インストール失敗（終了コード: {result.returncode}）", "ERROR")
@@ -393,12 +414,15 @@ def _install_ollama() -> bool:
         _log("Ollama インストール完了", "SUCCESS")
 
     except subprocess.TimeoutExpired:
+        _install_done.set()
         _log("インストール処理がタイムアウトしました", "ERROR")
         return False
     except subprocess.CalledProcessError as e:
+        _install_done.set()
         _log(f"インストール失敗（終了コード: {e.returncode}）", "ERROR")
         return False
     except Exception as e:
+        _install_done.set()
         _log(f"インストール中にエラー: {e}", "ERROR")
         return False
     finally:
@@ -406,8 +430,16 @@ def _install_ollama() -> bool:
 
     _log("[3/3] インストール確認中...", "INFO")
     # インストール直後はファイルが書き終わるまで少しかかるためリトライする
-    for _ in range(10):
+    max_checks = 10
+    for i in range(max_checks):
         time.sleep(1.0)
+        filled = int(30 * (i + 1) / max_checks)
+        bar = "█" * filled + "░" * (30 - filled)
+        _log(
+            f"  {bar} 確認中 {i + 1}/{max_checks}",
+            "INFO",
+            group="ollama_verify_progress",
+        )
         if _is_ollama_installed():
             _log("Ollama のインストールが確認できました", "SUCCESS")
             _log("=" * 60, "INFO")
@@ -495,10 +527,24 @@ def _pull_model(model_name: str) -> bool:
     _log(f"モデル '{model_name}' をダウンロード中...", "INFO")
 
     try:
+        # Windows では ollama.exe（コンソールアプリ）を起動すると
+        # 新しいコンソールウィンドウが自動生成される。
+        # STARTF_USESHOWWINDOW + SW_MINIMIZE で最小化状態で起動し、
+        # ユーザーが誤って閉じてダウンロードが中断されないようにする。
+        # （×で閉じるとプロセスが終了してダウンロード失敗になるため）
+        if sys.platform == "win32":
+            _si = subprocess.STARTUPINFO()
+            _si.dwFlags = subprocess.STARTF_USESHOWWINDOW
+            _si.wShowWindow = 6  # SW_MINIMIZE
+            _startupinfo = _si
+        else:
+            _startupinfo = None
+
         process = subprocess.Popen(
             [ollama_exe, "pull", model_name],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
+            startupinfo=_startupinfo,
             # テキストモードにせず bytes で受け取り、自前でデコードする
         )
 
