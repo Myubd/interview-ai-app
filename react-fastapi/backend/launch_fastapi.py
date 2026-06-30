@@ -541,10 +541,16 @@ def _pull_model(model_name: str) -> bool:
                     _emit(buf.decode("utf-8", errors="replace"))
                 break
 
-            if ch in (b"\n", b"\r"):
+            if ch == b"\n":
+                # \n のみを「行確定」として扱う
                 raw_line = buf.decode("utf-8", errors="replace")
                 buf.clear()
                 _emit(raw_line)
+            elif ch == b"\r":
+                # \r はターミナルの「カーソルを行頭に戻して上書き」を意味する。
+                # ここではバッファを破棄（次の内容で上書きされる想定）することで
+                # "pulling manifest pulling manifest ..." の横並びを防ぐ。
+                buf.clear()
             else:
                 buf.extend(ch)
 
@@ -652,6 +658,30 @@ def _fix_stdio() -> None:
         )
 
 
+def _suppress_child_console() -> None:
+    """Windows で子プロセスにコンソールウィンドウが出ないようにする。
+
+    PyInstaller の console=False exe は自分自身はコンソールなしで起動するが、
+    内部で subprocess.Popen を呼ぶ際にデフォルトの creationflags が引き継がれず
+    余分なウィンドウが表示されることがある。
+    subprocess のデフォルト startupinfo を上書きして常に非表示にする。
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        # STARTF_USESHOWWINDOW = 1, SW_HIDE = 0
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = 0  # SW_HIDE
+
+        # subprocess.Popen のデフォルト startupinfo を差し替える
+        # （Python 内部の _winapi 経由で全 Popen に適用）
+        subprocess._default_startupinfo = startupinfo  # type: ignore[attr-defined]
+    except Exception:
+        pass  # 失敗しても動作に影響なし
+
+
 def _resolve_db_path() -> str:
     """DBファイルの保存先をユーザーフォルダに返す。"""
     app_data = os.environ.get("APPDATA") or os.path.expanduser("~")
@@ -674,6 +704,7 @@ def _wait_for_port(port: int, timeout: float = 30.0) -> bool:
 
 def main() -> None:
     _fix_stdio()
+    _suppress_child_console()
 
     _log("=" * 60, "INFO")
     _log("Interview App (FastAPI) を起動しています", "INFO")
@@ -709,29 +740,18 @@ def main() -> None:
     )
     uvicorn_thread.start()
 
-    # サーバーが実際にリスニングを開始するまで待ってから setup を始める
+    # サーバーが実際にリスニングを開始するまで待つ
     if not _wait_for_port(BACKEND_PORT, timeout=30.0):
         _log("FastAPI サーバーの起動がタイムアウトしました", "ERROR")
         setup_error.set()
     else:
+        # ポートが開いた = SSEエンドポイントが使える状態
+        # → すぐにブラウザを開いてセットアップログをリアルタイムで見せる
+        _open_browser()
+
         # Ollama セットアップをバックグラウンドスレッドで実行
         setup_thread = threading.Thread(target=_ensure_ollama, daemon=True)
         setup_thread.start()
-
-    # Ollama セットアップが成功した場合のみブラウザを開く
-    def _open_browser_if_setup_ok() -> None:
-        for _ in range(180):
-            if setup_done.is_set():
-                _open_browser()
-                return
-            if setup_error.is_set():
-                _log("Ollama セットアップに失敗したためブラウザを開きません", "WARNING")
-                return
-            time.sleep(0.5)
-        # タイムアウト時は開いてしまう（Ollamaなしでも起動自体はできるため）
-        _open_browser()
-
-    threading.Thread(target=_open_browser_if_setup_ok, daemon=True).start()
 
     # メインスレッドを生かし続ける（uvicorn_thread が daemon なので
     # メインが終了するとサーバーも落ちる）
