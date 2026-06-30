@@ -27,6 +27,23 @@ import webbrowser
 import urllib.request
 import tempfile
 
+# ============================================================
+# モジュール多重ロード対策
+# ============================================================
+# このファイルが exe / `python launch_fastapi.py` のように直接実行されると
+# Python はこれを "__main__" としてロードする。
+# 一方 api/routes/setup_progress.py は `import launch_fastapi` をしており、
+# これは "__main__" とは別の新しいモジュールインスタンスとして
+# 再評価されてしまう（setup_progress_queue / setup_done / setup_error が
+# 二重に存在してしまい、SSE 側が空のキューと未セットのEventを永遠に
+# 読み続けてしまう＝セットアップ画面が無限ループする原因）。
+#
+# そこで "__main__" として実行された場合は、自分自身を
+# sys.modules["launch_fastapi"] にも登録しておくことで、
+# 後続の `import launch_fastapi` が同一インスタンスを参照するようにする。
+if __name__ == "__main__":
+    sys.modules.setdefault("launch_fastapi", sys.modules["__main__"])
+
 
 # ============================================================
 # 設定
