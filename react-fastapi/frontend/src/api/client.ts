@@ -142,34 +142,60 @@ export function subscribeSetupProgress(
   onDone: () => void,
   onError: () => void,
 ): () => void {
-  const es = new EventSource(`${BASE}/setup/progress`)
+  let es: EventSource | null = null
+  let closed = false
+  let retryCount = 0
+  const MAX_RETRIES = 20      // 最大20回リトライ（≒10秒）
+  const RETRY_DELAY_MS = 500  // 500ms間隔
 
-  es.addEventListener('log', (e: MessageEvent) => {
-    try {
-      const entry: SetupLogEntry = JSON.parse(e.data)
-      onLog(entry)
-    } catch {
-      // ignore parse errors
+  function connect() {
+    if (closed) return
+
+    es = new EventSource(`${BASE}/setup/progress`)
+
+    es.addEventListener('log', (e: MessageEvent) => {
+      retryCount = 0  // 接続が確立して届いたらリトライカウントをリセット
+      try {
+        const entry: SetupLogEntry = JSON.parse(e.data)
+        onLog(entry)
+      } catch {
+        // ignore parse errors
+      }
+    })
+
+    es.addEventListener('done', () => {
+      closed = true
+      es?.close()
+      onDone()
+    })
+
+    es.addEventListener('error_event', () => {
+      closed = true
+      es?.close()
+      onError()
+    })
+
+    // onerror: サーバー未起動など接続レベルのエラー → リトライ
+    es.onerror = () => {
+      es?.close()
+      es = null
+      if (closed) return
+      if (retryCount < MAX_RETRIES) {
+        retryCount++
+        setTimeout(connect, RETRY_DELAY_MS)
+      } else {
+        // リトライ上限を超えたら本当のエラーとして扱う
+        onError()
+      }
     }
-  })
-
-  es.addEventListener('done', () => {
-    es.close()
-    onDone()
-  })
-
-  es.addEventListener('error_event', () => {
-    es.close()
-    onError()
-  })
-
-  // EventSource の組み込み onerror（接続切れなど）
-  es.onerror = () => {
-    es.close()
-    onError()
   }
 
-  return () => es.close()
+  connect()
+
+  return () => {
+    closed = true
+    es?.close()
+  }
 }
 
 // ── Sessions ─────────────────────────────────────────────────

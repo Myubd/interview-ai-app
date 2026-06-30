@@ -17,6 +17,7 @@ import os
 import re
 import glob
 import json
+import multiprocessing
 import queue
 import shutil
 import socket
@@ -57,6 +58,19 @@ def _strip_ansi(text: str) -> str:
 # sys.modules["launch_fastapi"] にも登録しておくことで、
 # 後続の `import launch_fastapi` が同一インスタンスを参照するようにする。
 if __name__ == "__main__":
+    # ============================================================
+    # PyInstaller + multiprocessing 対策（ARM / Windows 共通）
+    # ============================================================
+    # PyInstaller でビルドした exe を Windows/ARM 上で起動すると、
+    # multiprocessing がサブプロセスを "spawn" モードで生成しようとして
+    # exe 自体を再起動してしまう。その余計な子プロセスが
+    # コンソールウィンドウやプロンプトとして画面に現れる原因になる。
+    # freeze_support() を最初に呼ぶことでこの多重起動を防ぐ。
+    multiprocessing.freeze_support()
+
+    # ============================================================
+    # モジュール多重ロード対策
+    # ============================================================
     sys.modules.setdefault("launch_fastapi", sys.modules["__main__"])
 
 
@@ -646,6 +660,18 @@ def _resolve_db_path() -> str:
     return os.path.join(db_dir, "career_support.db")
 
 
+def _wait_for_port(port: int, timeout: float = 30.0) -> bool:
+    """ポートが Listen 状態になるまで待つ。timeout 秒以内に開けば True を返す。"""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=0.5):
+                return True
+        except OSError:
+            time.sleep(0.2)
+    return False
+
+
 def main() -> None:
     _fix_stdio()
 
@@ -656,23 +682,44 @@ def main() -> None:
     _cleanup_old_meipass()
     _kill_existing_process(BACKEND_PORT)
 
-    # Ollama セットアップをバックグラウンドスレッドで実行
-    # → FastAPI が先に起動してSSEエンドポイントが使えるようになってから
-    #   フロントエンドが進捗を受信できるようにするため
-    setup_thread = threading.Thread(target=_ensure_ollama, daemon=True)
-    setup_thread.start()
-
     base = _base_path()
 
     os.environ.setdefault("INTERVIEW_STATIC_DIR", os.path.join(base, "frontend_dist"))
     os.environ.setdefault("PYTHONPATH", base)
     os.environ.setdefault("INTERVIEW_DB_PATH", _resolve_db_path())
 
+    _log("FastAPI サーバーを起動中...", "INFO")
+    _log("=" * 60, "INFO")
+
+    import uvicorn
+
+    # uvicorn をデーモンスレッドで起動し、ポートが開いてから
+    # setup_thread を開始する。
+    # こうすることで SSEエンドポイントが確実に存在する状態でセットアップログを
+    # 配信でき、「起動直後にログが出ない」問題を防ぐ。
+    uvicorn_thread = threading.Thread(
+        target=lambda: uvicorn.run(
+            "main:app",
+            host="127.0.0.1",
+            port=BACKEND_PORT,
+            log_level="warning",
+            loop="asyncio",   # ARM/PyInstaller 環境での子プロセス生成を防ぐ
+        ),
+        daemon=True,
+    )
+    uvicorn_thread.start()
+
+    # サーバーが実際にリスニングを開始するまで待ってから setup を始める
+    if not _wait_for_port(BACKEND_PORT, timeout=30.0):
+        _log("FastAPI サーバーの起動がタイムアウトしました", "ERROR")
+        setup_error.set()
+    else:
+        # Ollama セットアップをバックグラウンドスレッドで実行
+        setup_thread = threading.Thread(target=_ensure_ollama, daemon=True)
+        setup_thread.start()
+
     # Ollama セットアップが成功した場合のみブラウザを開く
-    # （setup_error がセットされた場合はユーザーがエラーメッセージを確認できるよう
-    #   ブラウザを開かない）
     def _open_browser_if_setup_ok() -> None:
-        # setup_done か setup_error のどちらかが立つまで待つ（最大90秒）
         for _ in range(180):
             if setup_done.is_set():
                 _open_browser()
@@ -686,16 +733,9 @@ def main() -> None:
 
     threading.Thread(target=_open_browser_if_setup_ok, daemon=True).start()
 
-    _log("FastAPI サーバーを起動中...", "INFO")
-    _log("=" * 60, "INFO")
-
-    import uvicorn
-    uvicorn.run(
-        "main:app",
-        host="127.0.0.1",
-        port=BACKEND_PORT,
-        log_level="warning",
-    )
+    # メインスレッドを生かし続ける（uvicorn_thread が daemon なので
+    # メインが終了するとサーバーも落ちる）
+    uvicorn_thread.join()
 
 
 if __name__ == "__main__":
