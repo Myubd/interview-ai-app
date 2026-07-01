@@ -3,6 +3,8 @@
 Streamlit 版の主要機能を **React + FastAPI** に移植したプロジェクト。  
 Docker で一発起動、または `start.sh` でローカル起動できます。
 
+> 初回起動時はバックエンドが `GET /api/v1/setup/status` をポーリングし、Ollama・モデルのセットアップが完了するまで `SetupProgressPage` で進捗（SSE経由）を表示します。Ollama起動やモデルダウンロードに関するトラブルは[ルートREADMEのトラブルシューティング](../README.md#トラブルシューティング)を参照してください。
+
 ---
 
 ## アーキテクチャ概要
@@ -48,8 +50,10 @@ graph LR
 |------|------|
 | AI模擬面接 | ✅ |
 | 面接履歴 | ✅ |
+| ダッシュボード（スコア集計） | ✅ |
 | ナレッジベース管理（RAG） | ✅ |
 | 設定 | ✅ |
+| 初回セットアップ進捗表示 | ✅ |
 | 動的インタビュー・自己PR生成 | 🔜 Streamlit版に残存 |
 | 企業比較マトリクス | 🔜 Streamlit版に残存 |
 | 性格診断（Big Five） | 🔜 Streamlit版に残存 |
@@ -62,7 +66,7 @@ graph LR
 
 ### インストーラー版（推奨・Windows）
 
-[Releases](../../../../releases) からインストーラーをダウンロードして実行するだけです。  
+[Releases](../../../releases) からインストーラーをダウンロードして実行するだけです。  
 **Ollama のインストール・起動は自動で行われます（初回起動時にインターネット接続が必要です）。**
 
 初回起動後、以下のコマンドで LLM モデルをダウンロードしてください。
@@ -162,8 +166,9 @@ react-fastapi/
 │   ├── main.py                    # FastAPI エントリポイント・CORS・ルーター登録
 │   ├── api/routes/
 │   │   ├── health.py              # GET /api/v1/health
+│   │   ├── setup_progress.py      # GET /api/v1/setup/status, /progress (SSE)
 │   │   ├── mock_interview.py      # POST /api/v1/mock-interview/* (SSE対応)
-│   │   ├── sessions.py            # CRUD /api/v1/sessions/*
+│   │   ├── sessions.py            # CRUD /api/v1/sessions/* + /dashboard
 │   │   ├── knowledge_base.py      # /api/v1/knowledge-bases/*
 │   │   └── settings.py            # /api/v1/settings/
 │   ├── services/
@@ -186,7 +191,9 @@ react-fastapi/
         │   └── ui.tsx                 # Button / Card / Badge 等
         └── pages/
             ├── HomePage.tsx
+            ├── SetupProgressPage.tsx  # 初回セットアップ進捗（SSE購読）
             ├── MockInterviewPage.tsx  # 設定→面接→評価の3フェーズ
+            ├── DashboardPage.tsx      # スコア集計ダッシュボード
             ├── HistoryPage.tsx
             ├── KnowledgePage.tsx
             └── SettingsPage.tsx
@@ -199,6 +206,9 @@ react-fastapi/
 ```mermaid
 mindmap
   root((API v1))
+    setup
+      GET /status
+      GET /progress SSE
     health
       GET /health
     mock-interview
@@ -209,6 +219,7 @@ mindmap
       GET /themes
     sessions
       GET POST /
+      GET /dashboard
       GET PATCH DELETE /:id
       GET /:id/export
       POST /import
@@ -225,6 +236,8 @@ mindmap
 
 | Method | Path | 説明 |
 |--------|------|------|
+| GET | /api/v1/setup/status | 初回セットアップ状態確認（ポーリング用） |
+| GET | /api/v1/setup/progress | 初回セットアップ進捗（**SSEストリーミング**） |
 | GET | /api/v1/health | Ollama 疎通確認 |
 | POST | /api/v1/mock-interview/start | 模擬面接開始・最初の質問取得 |
 | POST | /api/v1/mock-interview/answer | 回答送信（**SSEストリーミング**） |
@@ -232,6 +245,7 @@ mindmap
 | GET | /api/v1/mock-interview/personas | ペルソナ一覧 |
 | GET | /api/v1/mock-interview/themes | テーマ一覧 |
 | GET / POST | /api/v1/sessions/ | セッション一覧・作成 |
+| GET | /api/v1/sessions/dashboard | ダッシュボード用スコア集計データ取得 |
 | GET / PATCH / DELETE | /api/v1/sessions/{id} | セッション取得・更新・削除 |
 | GET | /api/v1/sessions/{id}/export | JSON エクスポート |
 | POST | /api/v1/sessions/import | JSON インポート |

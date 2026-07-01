@@ -1,7 +1,8 @@
 # 就活インタビューAI — Streamlit 版
 
-Streamlit + ローカル LLM（Ollama）で動く就活支援アプリのメイン実装。  
-個人情報を外部に送信せず、**完全オフライン**で動作します。
+Streamlit + ローカル LLM（Ollama）で動く就活支援アプリのメイン実装。
+面接内容・職務経歴などの個人情報は外部に送信せず、LLM処理は**ローカル（オフライン）**で完結します。
+※起動時のアップデート確認、および初回のOllamaインストールには別途インターネット接続が必要です。詳しくは[ルートREADME](../README.md#動作要件)を参照してください。
 
 ---
 
@@ -18,6 +19,7 @@ graph TB
         APP --> P5[AIキャリアアドバイザー]
         APP --> P6[想定質問生成]
         APP --> P7[面接履歴]
+        APP --> P8[ダッシュボード]
     end
 
     subgraph shared/ 共通ロジック
@@ -53,6 +55,7 @@ graph TB
 |------|------|
 | 動的インタビュー・自己PR生成 | 履歴書・企業情報をもとに面接対策コンテンツを生成 |
 | AI模擬面接 | ペルソナ・業界別テーマで本番に近い面接を体験 |
+| ダッシュボード（スコア集計） | 評価済み模擬面接のスコア推移・軸別平均をグラフで可視化 |
 | 企業比較マトリクス | 複数企業の特徴を表形式で比較 |
 | 性格診断（Big Five） | 自己分析をサポート |
 | AIキャリアアドバイザー | 志望方向・強みのアドバイスを生成 |
@@ -138,6 +141,7 @@ streamlit/
 ├── page_modules/                 # ページごとの UI ロジック
 │   ├── interview/                # 動的インタビュー・自己PR生成
 │   ├── mock_interview/           # AI模擬面接
+│   ├── dashboard_page.py         # ダッシュボード（スコア集計）
 │   ├── career_page.py            # AIキャリアアドバイザー
 │   ├── company_matrix_page.py    # 企業比較マトリクス
 │   ├── personality_page.py       # 性格診断（Big Five）
@@ -145,7 +149,7 @@ streamlit/
 │   └── history_page.py           # 面接履歴
 ├── utils/                        # LLM呼び出し・サニタイズ等のユーティリティ
 ├── rag/                          # RAGコアロジック（チャンク分割・埋め込み・検索）
-├── db/                           # SQLiteデータベース層
+├── db/                           # SQLiteデータベース層（詳細: db/README.md）
 ├── session_io/                   # セッションのDB/JSON入出力
 ├── prompts/                      # プロンプトテンプレート
 ├── shared -> ../shared/          # 共通モジュール（シンボリックリンク）
@@ -202,4 +206,4 @@ pytest tests/ -m "not integration" --cov=utils --cov=rag --cov-report=term-missi
 | 推奨チャットモデル | qwen3:8b |
 | 推奨埋め込みモデル | nomic-embed-text |
 | データ保存 | SQLite（`db/career_support.db`） |
-| 外部送信 | **なし** |
+| 外部送信 | 面接内容・個人情報は**なし**。アップデート確認等でGitHubへの通信は発生 |

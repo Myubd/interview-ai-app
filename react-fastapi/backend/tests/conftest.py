@@ -29,6 +29,14 @@ BACKEND_ROOT = Path(__file__).resolve().parent.parent
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
+# shared/ はフォールバック専用として末尾に追加する（db/・rag/ は
+# backend/ 側の実装を優先させる必要があるため、先頭に insert しない。
+# main.py の起動ブートストラップと同じ理由。詳細は main.py 内のコメント
+# および shared/MIGRATION_GUIDE.md を参照）。
+_SHARED_DIR = BACKEND_ROOT / "shared"
+if str(_SHARED_DIR) not in sys.path:
+    sys.path.append(str(_SHARED_DIR))
+
 # ── ollama モックを最優先で差し込む ────────────────────────
 #    import より前に差し込まないと本物が呼ばれる
 if "ollama" not in sys.modules:

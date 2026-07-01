@@ -28,6 +28,14 @@ APP_ROOT = Path(__file__).resolve().parent.parent   # interview_app_new/
 if str(APP_ROOT) not in sys.path:
     sys.path.insert(0, str(APP_ROOT))
 
+# shared/ はフォールバック専用として末尾に追加する（db/・rag/ は
+# streamlit/ 側の実装を優先させる必要があるため、先頭に insert しない。
+# startup/__init__.py の起動ブートストラップと同じ理由。詳細はそちらの
+# コメントおよび shared/MIGRATION_GUIDE.md を参照）。
+_SHARED_DIR = APP_ROOT / "shared"
+if str(_SHARED_DIR) not in sys.path:
+    sys.path.append(str(_SHARED_DIR))
+
 # ── ollama モックを最優先で差し込む ──────────────────────────────────────────
 import types as _types
 from unittest.mock import MagicMock

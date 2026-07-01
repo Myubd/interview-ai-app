@@ -38,7 +38,7 @@ USER appuser
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    DB_PATH=/app/data/career_support.db
+    INTERVIEW_DB_PATH=/app/data/career_support.db
 
 EXPOSE 8000
 
