@@ -20,10 +20,6 @@ a = Analysis(
         # バックエンドモジュール
         ('main.py', '.'),
         ('utils.py', '.'),
-        ('answer_assist.py', '.'),
-        ('industry_engine.py', '.'),
-        ('mock_interview_engine.py', '.'),
-        ('persona_engine.py', '.'),
         ('api', 'api'),
         ('db', 'db'),
         ('llm', 'llm'),
@@ -47,7 +43,6 @@ a = Analysis(
         'anyio', 'anyio._backends._asyncio',
         'ollama',
         'main', 'utils',
-        'answer_assist', 'industry_engine', 'mock_interview_engine', 'persona_engine',
         'api', 'api.routes',
         'api.routes.health', 'api.routes.mock_interview',
         'api.routes.sessions', 'api.routes.knowledge_base', 'api.routes.settings',
