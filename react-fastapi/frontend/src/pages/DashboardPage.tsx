@@ -21,13 +21,6 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })
 }
 
-function scoreColor(score: number): string {
-  if (score >= 80) return '#10b981'  // emerald-500
-  if (score >= 60) return '#6366f1'  // brand-500
-  if (score >= 40) return '#f97316'  // accent-500
-  return '#ef4444'                   // red-500
-}
-
 // 軸ラベルの日本語マッピング（バックエンドのキー名に対応）
 const AXIS_LABELS: Record<string, string> = {
   logic:         '論理性',
@@ -237,7 +230,11 @@ const AxesLineChart: React.FC<AxesLineChartProps> = ({ trend, axesKeys }) => {
   const toggleAxis = (key: string) => {
     setHiddenAxes(prev => {
       const next = new Set(prev)
-      next.has(key) ? next.delete(key) : next.add(key)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
       return next
     })
   }

@@ -6,6 +6,35 @@ on:
 
 jobs:
   # ============================================================
+  # React frontend Lint & Build確認
+  # ============================================================
+  frontend-lint-build:
+    name: Frontend Lint & Build Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: react-fastapi/frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: react-fastapi/frontend
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: react-fastapi/frontend
+        run: npm run lint
+
+      - name: Build frontend
+        working-directory: react-fastapi/frontend
+        run: npm run build
+
+  # ============================================================
   # shared/ 一本化・同期チェック
   # db/・rag/（core.py除く）が streamlit/・react-fastapi/backend/・
   # shared/ の3箇所で内容一致しているかを確認する。

@@ -65,6 +65,18 @@ graph TB
 
 ---
 
+## スクリーンショット
+
+<table>
+<tr>
+<td><img src="./screenshots/screenshot_01.png" alt="スクリーンショット1" width="280"></td>
+<td><img src="./screenshots/screenshot_02.png" alt="スクリーンショット2" width="280"></td>
+<td><img src="./screenshots/screenshot_03.png" alt="スクリーンショット3" width="280"></td>
+</tr>
+</table>
+
+---
+
 ## セットアップ
 
 ### インストーラー版（推奨・Windows）

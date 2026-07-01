@@ -27,6 +27,25 @@ graph TD
 | [`react-fastapi/`](./react-fastapi/) | React + FastAPI 版（移植中。下表の🔜は今後対応予定） |
 | [`shared/`](./shared/) | 両版が共有するエンジン・DB・プロンプト |
 
+<details>
+<summary>詳細アーキテクチャ図（Streamlit版・UI/ロジック/インフラの3層構成）</summary>
+
+![システムアーキテクチャ](./streamlit/screenshots/architecture.svg)
+
+</details>
+
+---
+
+## スクリーンショット
+
+<table>
+<tr>
+<td><img src="./streamlit/screenshots/screenshot_01.png" alt="スクリーンショット1" width="280"></td>
+<td><img src="./streamlit/screenshots/screenshot_02.png" alt="スクリーンショット2" width="280"></td>
+<td><img src="./streamlit/screenshots/screenshot_03.png" alt="スクリーンショット3" width="280"></td>
+</tr>
+</table>
+
 ---
 
 ## 機能対応表
