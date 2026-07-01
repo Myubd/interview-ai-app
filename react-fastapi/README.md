@@ -67,14 +67,14 @@ graph LR
 ### インストーラー版（推奨・Windows）
 
 [Releases](../../../releases) からインストーラーをダウンロードして実行するだけです。  
-**Ollama のインストール・起動は自動で行われます（初回起動時にインターネット接続が必要です）。**
+**Ollama のインストール・起動、および LLM モデル（`qwen3:8b` / `nomic-embed-text`）の初回ダウンロードは、いずれもアプリ起動時に自動で行われます**（初回起動時にインターネット接続が必要です）。起動直後は `SetupProgressPage` にセットアップ進捗（Ollamaインストール状況・モデルダウンロード進捗）がリアルタイム表示され、完了後に自動でメイン画面へ遷移します。
 
-初回起動後、以下のコマンドで LLM モデルをダウンロードしてください。
-
-```bash
-ollama pull qwen3:8b
-ollama pull nomic-embed-text
-```
+> 自動ダウンロードに失敗した場合のみ、以下を手動実行してください。
+>
+> ```bash
+> ollama pull qwen3:8b
+> ollama pull nomic-embed-text
+> ```
 
 ### 開発者向け（Docker・推奨）
 
