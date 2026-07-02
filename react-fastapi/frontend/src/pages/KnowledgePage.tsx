@@ -206,10 +206,21 @@ const KbItem: React.FC<{
         <Badge variant={kb.is_active ? 'success' : 'default'}>
           {kb.is_active ? 'ON' : 'OFF'}
         </Badge>
-        <button onClick={() => onToggle(kb)} className="text-slate-400 hover:text-brand-500 transition-colors">
+        <button
+          onClick={() => onToggle(kb)}
+          className="text-slate-400 hover:text-brand-500 transition-colors"
+          aria-label={kb.is_active ? `${kb.name} を無効にする` : `${kb.name} を有効にする`}
+          aria-pressed={kb.is_active}
+        >
           {kb.is_active ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
         </button>
-        <Button variant="ghost" size="sm" onClick={() => onDelete(kb.id)} icon={<Trash2 className="w-4 h-4 text-red-400" />} />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onDelete(kb.id)}
+          icon={<Trash2 className="w-4 h-4 text-red-400" />}
+          aria-label={`${kb.name} を削除`}
+        />
       </div>
     </div>
   </Card>

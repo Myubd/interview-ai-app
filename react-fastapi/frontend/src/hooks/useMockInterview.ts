@@ -8,8 +8,12 @@
  *    sendAnswer() が stateRef 経由で参照する（クロージャ問題を回避）
  *  - 同期エンジンの処理時間中も UI はフリーズしない（バックエンドが executor に逃がす）
  *  - SSE は event: / data: のブロック単位でパース
+ *  - 通信エラー時も回答は state.messages に残ったままなので、
+ *    retryLastAnswer() で「入力しなおし」なしに再送信できる
+ *  - 進行中の会話は localStorage にも保存し、SSE切断や誤操作で
+ *    タブが失われても resumeFromDraft() で復元できる
  */
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type { Message, MockEvaluation } from '@/api/client'
 import {
   apiStartMockInterview,
@@ -17,6 +21,13 @@ import {
   apiCreateSession,
   apiUpdateSession,
 } from '@/api/client'
+import { toFriendlyError } from '@/utils/errorMessages'
+import {
+  saveInterviewDraft,
+  loadInterviewDraft,
+  clearInterviewDraft,
+  type InterviewDraft,
+} from '@/utils/interviewDraft'
 
 export type InterviewStatus =
   | 'idle'
@@ -39,6 +50,11 @@ export interface MockInterviewState {
   profileText: string
   evaluation: MockEvaluation | null
   error: string | null
+  errorHint: string | null
+  /** 直前に送信しようとした回答。エラー時の再送信に使う */
+  lastAnswer: string | null
+  /** 直前のエラーが再送信可能な種類かどうか */
+  canRetry: boolean
   sessionId: number | null   // 保存済みセッションID
 }
 
@@ -74,6 +90,10 @@ function parseSseChunk(text: string): SseEvent[] {
   return events
 }
 
+function isAbortError(err: unknown): boolean {
+  return err instanceof DOMException && err.name === 'AbortError'
+}
+
 // ── フック本体 ─────────────────────────────────────────────────
 export function useMockInterview() {
   const INITIAL: MockInterviewState = {
@@ -87,6 +107,9 @@ export function useMockInterview() {
     profileText: '',
     evaluation: null,
     error: null,
+    errorHint: null,
+    lastAnswer: null,
+    canRetry: false,
     sessionId: null,
   }
 
@@ -102,6 +125,25 @@ export function useMockInterview() {
   }, [])
 
   const abortRef = useRef<AbortController | null>(null)
+
+  // 会話が進んでいる間は localStorage にも保存しておく（エラー・誤操作からの復旧用）
+  useEffect(() => {
+    const s = state
+    if (s.messages.length > 0 && (s.status === 'in_progress' || s.status === 'waiting' || s.status === 'error')) {
+      saveInterviewDraft({
+        messages: s.messages,
+        themeIndex: s.themeIndex,
+        themeTitle: s.themeTitle,
+        followupsAsked: s.followupsAsked,
+        industryKey: s.industryKey,
+        personaKey: s.personaKey,
+        profileText: s.profileText,
+        sessionId: s.sessionId,
+      })
+    } else if (s.status === 'finished' || s.status === 'evaluated' || s.status === 'idle') {
+      clearInterviewDraft()
+    }
+  }, [state])
 
   // ── 面接開始 ────────────────────────────────────────────────
   const start = useCallback(async (options: StartOptions) => {
@@ -134,20 +176,23 @@ export function useMockInterview() {
         sessionId,
       }))
     } catch (err) {
-      setStateSync(s => ({ ...s, status: 'error', error: String(err) }))
+      const friendly = toFriendlyError(err)
+      setStateSync(s => ({
+        ...s,
+        status: 'error',
+        error: friendly.message,
+        errorHint: friendly.hint ?? null,
+        canRetry: false, // 開始前なので「最初からやり直す」以外に選択肢はない
+      }))
     }
   }, [setStateSync])
 
-  // ── 回答送信（SSE）─────────────────────────────────────────
-  const sendAnswer = useCallback(async (answer: string) => {
+  // ── 回答送信の実処理（SSE）─────────────────────────────────
+  // messagesForRequest にはすでに送信対象の回答が含まれている前提。
+  // retry の場合は同じ回答を重複追加せずにこの関数を呼び直す。
+  const performSend = useCallback(async (answer: string, messagesForRequest: Message[]) => {
     const cur = stateRef.current
-
-    // ユーザーメッセージを即時追加
-    const updatedMessages: Message[] = [
-      ...cur.messages,
-      { role: 'user', content: answer },
-    ]
-    setStateSync(s => ({ ...s, status: 'waiting', messages: updatedMessages }))
+    setStateSync(s => ({ ...s, status: 'waiting', lastAnswer: answer, error: null, errorHint: null }))
 
     abortRef.current = new AbortController()
 
@@ -159,7 +204,7 @@ export function useMockInterview() {
         body: JSON.stringify({
           theme_index: cur.themeIndex,
           followups_asked: cur.followupsAsked,
-          messages: updatedMessages,
+          messages: messagesForRequest,
           answer,
           industry_key: cur.industryKey,
           persona_key: cur.personaKey,
@@ -195,12 +240,40 @@ export function useMockInterview() {
           applyEvent(eventType, data)
         }
       }
+      // 正常に完了したのでリトライ用の回答は不要
+      setStateSync(s => (s.status === 'error' ? s : { ...s, lastAnswer: null }))
     } catch (err) {
-      if ((err as Error).name !== 'AbortError') {
-        setStateSync(s => ({ ...s, status: 'error', error: String(err) }))
+      if (!isAbortError(err)) {
+        const friendly = toFriendlyError(err)
+        setStateSync(s => ({
+          ...s,
+          status: 'error',
+          error: friendly.message,
+          errorHint: friendly.hint ?? null,
+          canRetry: friendly.retryable,
+        }))
       }
     }
   }, [setStateSync])
+
+  // ── 回答送信（ユーザー操作から呼ばれる）─────────────────────
+  const sendAnswer = useCallback(async (answer: string) => {
+    const cur = stateRef.current
+    const updatedMessages: Message[] = [
+      ...cur.messages,
+      { role: 'user', content: answer },
+    ]
+    setStateSync(s => ({ ...s, messages: updatedMessages }))
+    await performSend(answer, updatedMessages)
+  }, [performSend, setStateSync])
+
+  // ── エラー後の再送信（回答内容・会話履歴は失わない）────────
+  const retryLastAnswer = useCallback(async () => {
+    const cur = stateRef.current
+    if (!cur.lastAnswer) return
+    // messages にはすでにユーザーの回答が含まれているので、そのまま使う
+    await performSend(cur.lastAnswer, cur.messages)
+  }, [performSend])
 
   function applyEvent(eventType: string, data: Record<string, unknown>) {
     switch (eventType) {
@@ -223,9 +296,17 @@ export function useMockInterview() {
       case 'finished':
         setStateSync(s => ({ ...s, status: 'finished' }))
         break
-      case 'error':
-        setStateSync(s => ({ ...s, status: 'error', error: data['message'] as string }))
+      case 'error': {
+        const friendly = toFriendlyError(new Error(String(data['message'] ?? '')))
+        setStateSync(s => ({
+          ...s,
+          status: 'error',
+          error: (data['message'] as string) || friendly.message,
+          errorHint: friendly.hint ?? null,
+          canRetry: true,
+        }))
         break
+      }
     }
   }
 
@@ -240,6 +321,7 @@ export function useMockInterview() {
         profile_text: cur.profileText,
       })
       setStateSync(s => ({ ...s, status: 'evaluated', evaluation: ev }))
+      clearInterviewDraft()
 
       // ── セッションにメッセージ履歴・評価結果を保存 ──────────
       if (cur.sessionId != null) {
@@ -255,18 +337,51 @@ export function useMockInterview() {
         }
       }
     } catch (err) {
-      setStateSync(s => ({ ...s, status: 'error', error: String(err) }))
+      const friendly = toFriendlyError(err)
+      setStateSync(s => ({
+        ...s,
+        status: 'error',
+        error: friendly.message,
+        errorHint: friendly.hint ?? null,
+        canRetry: friendly.retryable,
+      }))
     }
   }, [setStateSync])
 
   // ── 中断 ────────────────────────────────────────────────────
   const abort = useCallback(() => { abortRef.current?.abort() }, [])
 
-  // ── リセット ────────────────────────────────────────────────
+  // ── リセット（下書きも破棄）────────────────────────────────
   const reset = useCallback(() => {
     abort()
+    clearInterviewDraft()
     setStateSync(() => INITIAL)
   }, [abort, setStateSync])
 
-  return { state, start, sendAnswer, evaluate, abort, reset }
+  // ── 保存済み下書きの確認・復元 ──────────────────────────────
+  const getSavedDraft = useCallback((): InterviewDraft | null => loadInterviewDraft(), [])
+
+  const resumeFromDraft = useCallback((draft: InterviewDraft) => {
+    setStateSync(() => ({
+      ...INITIAL,
+      status: 'in_progress',
+      messages: draft.messages,
+      themeIndex: draft.themeIndex,
+      themeTitle: draft.themeTitle,
+      followupsAsked: draft.followupsAsked,
+      industryKey: draft.industryKey,
+      personaKey: draft.personaKey,
+      profileText: draft.profileText,
+      sessionId: draft.sessionId,
+    }))
+  }, [setStateSync])
+
+  const discardDraft = useCallback(() => {
+    clearInterviewDraft()
+  }, [])
+
+  return {
+    state, start, sendAnswer, retryLastAnswer, evaluate, abort, reset,
+    getSavedDraft, resumeFromDraft, discardDraft,
+  }
 }

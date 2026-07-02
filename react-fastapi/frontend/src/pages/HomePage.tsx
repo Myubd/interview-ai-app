@@ -4,7 +4,7 @@
  */
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mic2, History, Database, Settings, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
+import { Mic2, History, Database, Settings, AlertCircle, CheckCircle2, Loader2, ExternalLink } from 'lucide-react'
 import { apiHealth, type HealthResponse } from '@/api/client'
 import { Button, Card } from '@/components/ui'
 
@@ -114,13 +114,19 @@ export const HomePage: React.FC = () => {
 
       {/* Streamlit 誘導 */}
       <div className="mt-8 p-4 bg-surface-50 rounded-xl border border-surface-200">
-        <p className="text-xs text-slate-500 mb-2 font-medium">自己PR生成・企業比較など他の機能</p>
+        <p className="text-xs text-slate-500 mb-1 font-medium">自己PR生成・企業比較など他の機能</p>
+        <p className="text-xs text-slate-400 mb-3">
+          これらの機能は移行作業中のため、別画面（Streamlit版）で新しいタブが開きます。
+          今の画面はそのまま残ります。
+        </p>
         <Button
           variant="secondary"
           size="sm"
-          onClick={() => window.open('http://localhost:8501', '_blank')}
+          onClick={() => window.open('http://localhost:8501', '_blank', 'noopener,noreferrer')}
+          icon={<ExternalLink className="w-3.5 h-3.5" />}
+          aria-label="Streamlit版を新しいタブで開く"
         >
-          Streamlit版を開く
+          Streamlit版を開く（別タブ）
         </Button>
       </div>
     </div>

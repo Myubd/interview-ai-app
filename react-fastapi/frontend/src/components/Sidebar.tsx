@@ -95,8 +95,11 @@ export const Sidebar: React.FC = () => {
 
         {/* Streamlit 版へのリンク */}
         <div className="px-3 mt-4 pt-4 border-t border-surface-100">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 mb-2">
-            Streamlit版の機能
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1">
+            他の機能（別タブで開きます）
+          </p>
+          <p className="text-[11px] text-slate-400 px-2 mb-2 leading-relaxed">
+            React版への移行が完了するまでの間、以下は旧UI（Streamlit）で提供しています。
           </p>
           <ul className="space-y-0.5">
             {STREAMLIT_FEATURES.map(f => (
@@ -106,9 +109,10 @@ export const Sidebar: React.FC = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-500 hover:text-slate-700 hover:bg-surface-50 transition-colors"
+                  aria-label={`${f}（Streamlit版を新しいタブで開く）`}
                 >
                   <span className="flex-1">{f}</span>
-                  <ExternalLink className="w-3 h-3 opacity-50" />
+                  <ExternalLink className="w-3 h-3 opacity-50" aria-hidden="true" />
                 </a>
               </li>
             ))}

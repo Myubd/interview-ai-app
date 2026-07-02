@@ -4,19 +4,52 @@
  */
 import React, { useState, useEffect, useRef } from 'react'
 import {
-  Mic2, Send, Square, RotateCcw, User, Bot,
-  AlertCircle, CheckCircle2, ChevronRight, Loader2,
+  Mic2, Send, Square, RotateCcw, RefreshCw, User, Bot,
+  AlertCircle, CheckCircle2, ChevronRight, Loader2, History,
 } from 'lucide-react'
 import { apiGetPersonas, apiGetThemes, type PersonaInfo, type ThemeInfo } from '@/api/client'
 import { useMockInterview } from '@/hooks/useMockInterview'
-import { Button, Badge, Spinner, TypingIndicator, Card } from '@/components/ui'
+import { Button, Badge, Spinner, TypingIndicator, Card, ProgressBar } from '@/components/ui'
+import type { InterviewDraft } from '@/utils/interviewDraft'
+
+// ── 中断していた面接の再開バナー ─────────────────────────────────
+const ResumeBanner: React.FC<{
+  draft: InterviewDraft
+  onResume: () => void
+  onDiscard: () => void
+}> = ({ draft, onResume, onDiscard }) => (
+  <div
+    role="status"
+    className="mb-6 p-4 rounded-xl border border-brand-200 bg-brand-50 flex items-start gap-3 animate-fade-in"
+  >
+    <History className="w-5 h-5 text-brand-500 mt-0.5 flex-shrink-0" />
+    <div className="flex-1 min-w-0">
+      <p className="text-sm font-medium text-brand-800">前回、途中で終了した面接があります</p>
+      <p className="text-xs text-brand-600 mt-0.5">
+        {draft.themeTitle || '面接'}・回答済み {draft.messages.filter(m => m.role === 'user').length}件
+        の続きから再開できます。
+      </p>
+      <div className="flex gap-2 mt-3">
+        <Button size="sm" onClick={onResume} icon={<RefreshCw className="w-3.5 h-3.5" />}>
+          続きから再開
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onDiscard}>
+          破棄して新しく始める
+        </Button>
+      </div>
+    </div>
+  </div>
+)
 
 // ── フェーズ1: 設定画面 ──────────────────────────────────────────
 const SetupPanel: React.FC<{
   personas: PersonaInfo[]
   onStart: (personaKey: string, profileText: string) => void
   loading: boolean
-}> = ({ personas, onStart, loading }) => {
+  draft: InterviewDraft | null
+  onResumeDraft: () => void
+  onDiscardDraft: () => void
+}> = ({ personas, onStart, loading, draft, onResumeDraft, onDiscardDraft }) => {
   const [personaKey, setPersonaKey] = useState('standard')
   const [profileText, setProfileText] = useState('')
 
@@ -27,9 +60,13 @@ const SetupPanel: React.FC<{
         <p className="text-sm text-slate-500">面接官のタイプを選んで練習を始めましょう。</p>
       </div>
 
+      {draft && (
+        <ResumeBanner draft={draft} onResume={onResumeDraft} onDiscard={onDiscardDraft} />
+      )}
+
       <div className="mb-6">
-        <p className="text-sm font-medium text-slate-700 mb-3">面接官タイプ</p>
-        <div className="space-y-2">
+        <p className="text-sm font-medium text-slate-700 mb-3" id="persona-type-label">面接官タイプ</p>
+        <div className="space-y-2" role="radiogroup" aria-labelledby="persona-type-label">
           {personas.length === 0 ? (
             <div className="flex items-center gap-2 text-slate-400 text-sm py-4">
               <Loader2 className="w-4 h-4 animate-spin" />読み込み中...
@@ -59,11 +96,12 @@ const SetupPanel: React.FC<{
       </div>
 
       <div className="mb-8">
-        <p className="text-sm font-medium text-slate-700 mb-1">
+        <label htmlFor="profile-text" className="text-sm font-medium text-slate-700 mb-1 block">
           プロフィール <span className="text-slate-400 font-normal">(任意)</span>
-        </p>
+        </label>
         <p className="text-xs text-slate-400 mb-2">学校・専攻・経験などを入力すると質問がパーソナライズされます。</p>
         <textarea
+          id="profile-text"
           value={profileText}
           onChange={e => setProfileText(e.target.value)}
           rows={4}
@@ -117,19 +155,19 @@ const ChatPanel: React.FC<{
       <div className="px-6 py-3 border-b border-surface-100">
         <div className="flex items-center gap-3 mb-2">
           <Badge variant="info" className="flex-shrink-0">{state.themeTitle || '...'}</Badge>
-          <div className="flex-1 h-1.5 bg-surface-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-brand-400 rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <span className="text-xs text-slate-400 flex-shrink-0">
+          <ProgressBar
+            value={progress}
+            label={`面接の進捗: ${totalThemes}テーマ中${state.themeIndex + 1}テーマ目`}
+            className="flex-1"
+          />
+          <span className="text-xs text-slate-400 flex-shrink-0" aria-hidden="true">
             {state.themeIndex + 1}/{totalThemes}
           </span>
           <Button
             variant="ghost" size="sm"
             onClick={onFinish}
             icon={<Square className="w-4 h-4" />}
+            aria-label="面接を終了して評価に進む"
           >
             終了
           </Button>
@@ -137,15 +175,23 @@ const ChatPanel: React.FC<{
       </div>
 
       {/* メッセージ一覧 */}
-      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+      <div
+        className="flex-1 overflow-y-auto px-6 py-6 space-y-4"
+        role="log"
+        aria-live="polite"
+        aria-label="面接官との会話"
+      >
         {state.messages.map((msg, i) => (
           <div
             key={i}
             className={`flex gap-3 animate-slide-up ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
           >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-              msg.role === 'assistant' ? 'bg-brand-100 text-brand-600' : 'bg-surface-100 text-slate-500'
-            }`}>
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                msg.role === 'assistant' ? 'bg-brand-100 text-brand-600' : 'bg-surface-100 text-slate-500'
+              }`}
+              aria-hidden="true"
+            >
               {msg.role === 'assistant' ? <Bot className="w-4 h-4" /> : <User className="w-4 h-4" />}
             </div>
             <div className={`max-w-[78%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
@@ -153,6 +199,7 @@ const ChatPanel: React.FC<{
                 ? 'bg-surface-50 text-slate-800 rounded-tl-sm'
                 : 'bg-brand-500 text-white rounded-tr-sm'
             }`}>
+              <span className="sr-only">{msg.role === 'assistant' ? '面接官: ' : 'あなた: '}</span>
               {msg.content}
             </div>
           </div>
@@ -160,7 +207,7 @@ const ChatPanel: React.FC<{
 
         {state.status === 'waiting' && (
           <div className="flex gap-3 animate-fade-in">
-            <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center" aria-hidden="true">
               <Bot className="w-4 h-4" />
             </div>
             <div className="bg-surface-50 rounded-2xl rounded-tl-sm px-4 py-3">
@@ -172,7 +219,7 @@ const ChatPanel: React.FC<{
         {state.status === 'finished' && (
           <div className="flex justify-center animate-fade-in">
             <span className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-full text-sm">
-              <CheckCircle2 className="w-4 h-4" />全テーマ完了
+              <CheckCircle2 className="w-4 h-4" aria-hidden="true" />全テーマ完了
             </span>
           </div>
         )}
@@ -183,7 +230,9 @@ const ChatPanel: React.FC<{
       {state.status === 'in_progress' && (
         <div className="px-6 py-4 border-t border-surface-100">
           <div className="flex gap-3">
+            <label htmlFor="answer-input" className="sr-only">回答を入力</label>
             <textarea
+              id="answer-input"
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={e => {
@@ -218,7 +267,7 @@ const EvalPanel: React.FC<{
 }> = ({ state, onEvaluate, onReset }) => {
   if (state.status === 'evaluating') {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
+      <div className="flex flex-col items-center justify-center h-full gap-4" role="status" aria-live="polite">
         <Spinner className="w-8 h-8" />
         <p className="text-sm text-slate-500">評価を生成しています…</p>
       </div>
@@ -344,35 +393,83 @@ export const MockInterviewPage: React.FC = () => {
   const [phase, setPhase] = useState<Phase>('setup')
   const [personas, setPersonas] = useState<PersonaInfo[]>([])
   const [themes, setThemes] = useState<ThemeInfo[]>([])
+  const [draft, setDraft] = useState<InterviewDraft | null>(null)
+  const [retrying, setRetrying] = useState(false)
 
-  const { state, start, sendAnswer, evaluate, reset } = useMockInterview()
+  const {
+    state, start, sendAnswer, retryLastAnswer, evaluate, reset,
+    getSavedDraft, resumeFromDraft, discardDraft,
+  } = useMockInterview()
 
   useEffect(() => {
     apiGetPersonas().then(setPersonas).catch(console.error)
     apiGetThemes().then(setThemes).catch(console.error)
-  }, [])
+    // 前回中断した面接がないか確認し、あれば再開バナーを出す
+    setDraft(getSavedDraft())
+  }, [getSavedDraft])
 
   const handleStart = async (personaKey: string, profileText: string) => {
     await start({ industryKey: 'general', personaKey, profileText })
     setPhase('interview')
   }
 
+  const handleResumeDraft = () => {
+    if (!draft) return
+    resumeFromDraft(draft)
+    setDraft(null)
+    setPhase('interview')
+  }
+
+  const handleDiscardDraft = () => {
+    discardDraft()
+    setDraft(null)
+  }
+
   const handleFinish = () => setPhase('eval')
 
   const handleReset = () => {
     reset()
+    setDraft(null)
     setPhase('setup')
   }
 
-  // エラー
+  const handleRetry = async () => {
+    setRetrying(true)
+    try {
+      await retryLastAnswer()
+    } finally {
+      setRetrying(false)
+    }
+  }
+
+  // エラー：回答内容は state.messages に残っているので、
+  // 可能な場合は「再送信」で会話を失わずに続行できるようにする
   if (state.status === 'error') {
+    const hasConversation = state.messages.length > 0
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-4 animate-fade-in">
-        <AlertCircle className="w-10 h-10 text-red-400" />
-        <p className="text-sm text-red-600 max-w-sm text-center">{state.error}</p>
-        <Button variant="secondary" onClick={handleReset} icon={<RotateCcw className="w-4 h-4" />}>
-          やり直す
-        </Button>
+      <div className="flex flex-col items-center justify-center h-full gap-4 animate-fade-in px-6" role="alert">
+        <AlertCircle className="w-10 h-10 text-red-400" aria-hidden="true" />
+        <div className="text-center max-w-sm">
+          <p className="text-sm text-red-600 font-medium">{state.error}</p>
+          {state.errorHint && (
+            <p className="text-xs text-slate-500 mt-1.5">{state.errorHint}</p>
+          )}
+          {hasConversation && (
+            <p className="text-xs text-slate-400 mt-3">
+              これまでの回答（{state.messages.filter(m => m.role === 'user').length}件）は保持されています。
+            </p>
+          )}
+        </div>
+        <div className="flex gap-3">
+          {state.canRetry && state.lastAnswer && (
+            <Button onClick={handleRetry} loading={retrying} icon={<RefreshCw className="w-4 h-4" />}>
+              再送信する
+            </Button>
+          )}
+          <Button variant="secondary" onClick={handleReset} icon={<RotateCcw className="w-4 h-4" />}>
+            最初からやり直す
+          </Button>
+        </div>
       </div>
     )
   }
@@ -394,6 +491,9 @@ export const MockInterviewPage: React.FC = () => {
       personas={personas}
       onStart={handleStart}
       loading={state.status === 'starting'}
+      draft={draft}
+      onResumeDraft={handleResumeDraft}
+      onDiscardDraft={handleDiscardDraft}
     />
   )
 }

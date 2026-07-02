@@ -111,10 +111,36 @@ export const Spinner: React.FC<{ className?: string }> = ({ className }) => (
 // ── TypingIndicator ───────────────────────────────────────────────
 
 export const TypingIndicator: React.FC = () => (
-  <div className="flex items-center gap-0.5 px-1 py-0.5">
-    <span className="typing-dot" />
-    <span className="typing-dot" />
-    <span className="typing-dot" />
+  <div className="flex items-center gap-0.5 px-1 py-0.5" role="status" aria-label="AIが入力中です">
+    <span className="typing-dot" aria-hidden="true" />
+    <span className="typing-dot" aria-hidden="true" />
+    <span className="typing-dot" aria-hidden="true" />
+  </div>
+)
+
+// ── ProgressBar ───────────────────────────────────────────────────
+// スクリーンリーダーにも進捗が伝わるよう role="progressbar" を付与した棒グラフ。
+
+interface ProgressBarProps {
+  value: number
+  max?: number
+  label?: string
+  className?: string
+}
+
+export const ProgressBar: React.FC<ProgressBarProps> = ({ value, max = 100, label, className }) => (
+  <div
+    role="progressbar"
+    aria-valuenow={Math.round(value)}
+    aria-valuemin={0}
+    aria-valuemax={max}
+    aria-label={label}
+    className={clsx('h-1.5 bg-surface-100 rounded-full overflow-hidden', className)}
+  >
+    <div
+      className="h-full bg-brand-400 rounded-full transition-all duration-500"
+      style={{ width: `${Math.min(100, Math.round((value / max) * 100))}%` }}
+    />
   </div>
 )
 

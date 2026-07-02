@@ -252,12 +252,14 @@ const AxesLineChart: React.FC<AxesLineChartProps> = ({ trend, axesKeys }) => {
             <button
               key={key}
               onClick={() => toggleAxis(key)}
+              aria-pressed={!hidden}
+              aria-label={`${axisLabel(key)}をグラフに${hidden ? '表示' : '非表示'}`}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-opacity ${
                 hidden ? 'opacity-30' : 'opacity-100'
               }`}
               style={{ borderColor: color, color }}
             >
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} aria-hidden="true" />
               {axisLabel(key)}
             </button>
           )

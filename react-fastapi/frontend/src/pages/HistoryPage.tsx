@@ -123,6 +123,7 @@ export const HistoryPage: React.FC = () => {
                       size="sm"
                       onClick={() => handleExport(s.id, s.company_name)}
                       title="JSONエクスポート"
+                      aria-label={`${s.company_name || '会社名未設定'} をJSONエクスポート`}
                       icon={<Download className="w-4 h-4" />}
                     />
                     <Button
@@ -131,6 +132,7 @@ export const HistoryPage: React.FC = () => {
                       onClick={() => handleDelete(s.id)}
                       loading={deleting === s.id}
                       title="削除"
+                      aria-label={`${s.company_name || '会社名未設定'} を削除`}
                       icon={<Trash2 className="w-4 h-4 text-red-400" />}
                     />
                   </div>
