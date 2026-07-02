@@ -210,7 +210,7 @@ const KbItem: React.FC<{
           onClick={() => onToggle(kb)}
           className="text-slate-400 hover:text-brand-500 transition-colors"
           aria-label={kb.is_active ? `${kb.name} を無効にする` : `${kb.name} を有効にする`}
-          aria-pressed={kb.is_active}
+          aria-pressed={Boolean(kb.is_active)}
         >
           {kb.is_active ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
         </button>
