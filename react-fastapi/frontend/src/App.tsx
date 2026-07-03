@@ -7,6 +7,7 @@ import { HistoryPage } from '@/pages/HistoryPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { KnowledgePage } from '@/pages/KnowledgePage'
 import { PredictedQuestionsPage } from '@/pages/PredictedQuestionsPage'
+import { InterviewPage } from '@/pages/InterviewPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { SetupProgressPage } from '@/pages/SetupProgressPage'
 
@@ -28,6 +29,7 @@ export default function App() {
           <Route path="/dashboard"      element={<DashboardPage />} />
           <Route path="/knowledge"      element={<KnowledgePage />} />
           <Route path="/predicted-questions" element={<PredictedQuestionsPage />} />
+          <Route path="/interview" element={<InterviewPage />} />
           <Route path="/settings"       element={<SettingsPage />} />
         </Routes>
       </main>

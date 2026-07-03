@@ -17,6 +17,7 @@ import {
   Database,
   Settings,
   Sparkles,
+  MessageSquareText,
   ExternalLink,
 } from 'lucide-react'
 import { apiGetVersion } from '@/api/client'
@@ -31,6 +32,7 @@ interface NavItem {
 const REACT_PAGES: NavItem[] = [
   { to: '/',               icon: <Home className="w-5 h-5" />,      label: 'ホーム' },
   { to: '/mock-interview', icon: <Mic2 className="w-5 h-5" />,      label: 'AI模擬面接' },
+  { to: '/interview',      icon: <MessageSquareText className="w-5 h-5" />, label: '自己PR作成' },
   { to: '/predicted-questions', icon: <Sparkles className="w-5 h-5" />, label: '想定質問生成' },
   { to: '/history',        icon: <History className="w-5 h-5" />,   label: '面接履歴' },
   { to: '/dashboard',      icon: <BarChart2 className="w-5 h-5" />, label: 'ダッシュボード' },
@@ -38,9 +40,8 @@ const REACT_PAGES: NavItem[] = [
   { to: '/settings',       icon: <Settings className="w-5 h-5" />,  label: '設定' },
 ]
 
-// Streamlitに残る機能
+// Streamlitに残る機能（自己PR作成はReact版に移行済みのためここから除外）
 const STREAMLIT_FEATURES = [
-  '📄 自己PR作成',
   '🏢 企業比較マトリクス',
   '📊 性格診断 (Big Five)',
   '💬 AIキャリアアドバイザー',

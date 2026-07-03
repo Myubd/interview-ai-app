@@ -389,3 +389,126 @@ export const apiSavePredictedQuestionsAndFavorite = (data: {
     body: JSON.stringify(data),
   })
 
+/** 想定質問（自己PR＋会話履歴ベース版）。動的インタビューフローの⑥から使う。 */
+export const apiGeneratePredictedQuestionsFromPr = (data: {
+  pr_text: string
+  profile_text?: string
+  messages?: Message[]
+}): Promise<{ questions: PredictedQuestion[] }> =>
+  request('/predicted-questions/generate-from-pr', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+
+export const apiSavePredictedQuestionsPrBased = (data: {
+  questions: PredictedQuestion[]
+  company_name?: string | null
+}): Promise<{ session_id: number; favorite_id: number }> =>
+  request('/predicted-questions/save-and-favorite-pr-based', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+
+// ── Interview（自己PR引き出しインタビュー）───────────────────────
+// streamlit版 page_modules/interview/ 一式に相当。
+
+export interface InterviewQuestionResponse {
+  status: 'question' | 'awaiting_category_choice' | 'complete'
+  theme_index: number
+  theme_title: string
+  question: string
+  questions_asked_in_theme: number
+  category_options: string[]
+}
+
+export const apiInterviewStart = (profile_text: string): Promise<InterviewQuestionResponse> =>
+  request('/interview/start', { method: 'POST', body: JSON.stringify({ profile_text }) })
+
+export const apiInterviewNext = (data: {
+  theme_index: number
+  theme_messages: Message[]
+  questions_asked_in_theme: number
+  selected_category?: string | null
+  profile_text?: string
+  messages?: Message[]
+}): Promise<InterviewQuestionResponse> =>
+  request('/interview/next', { method: 'POST', body: JSON.stringify(data) })
+
+export const apiInterviewChooseCategory = (data: {
+  theme_index: number
+  category: string
+  profile_text?: string
+  messages?: Message[]
+}): Promise<InterviewQuestionResponse> =>
+  request('/interview/choose-category', { method: 'POST', body: JSON.stringify(data) })
+
+export interface InterviewSummary {
+  ok: boolean
+  strengths: { point: string; evidence?: string }[]
+  weaknesses: { point: string; evidence?: string }[]
+  fit_roles: string
+  industry_fit: Record<string, { score: number; reason: string }>
+  overall_comment: string
+  error_msg?: string | null
+}
+
+export const apiInterviewSummary = (data: {
+  profile_text?: string
+  messages: Message[]
+}): Promise<InterviewSummary> =>
+  request('/interview/summary', { method: 'POST', body: JSON.stringify(data) })
+
+export interface PrVariant {
+  type: string
+  label: string
+  content: string
+}
+
+export const apiInterviewPrVariants = (data: {
+  profile_text?: string
+  messages: Message[]
+}): Promise<PrVariant[]> =>
+  request('/interview/pr/variants', { method: 'POST', body: JSON.stringify(data) })
+
+export interface PrEvaluation {
+  scores: Record<string, number>
+  summary: string
+  improvements: string[]
+}
+
+export const apiInterviewPrEvaluate = (pr_text: string): Promise<PrEvaluation> =>
+  request('/interview/pr/evaluate', { method: 'POST', body: JSON.stringify({ pr_text }) })
+
+export interface PrRefineResult {
+  pr_text: string
+  ok: boolean
+  error_msg?: string | null
+}
+
+export const apiInterviewPrRefine = (data: {
+  pr_text: string
+  instruction: string
+  profile_text?: string
+  messages?: Message[]
+}): Promise<PrRefineResult> =>
+  request('/interview/pr/refine', { method: 'POST', body: JSON.stringify(data) })
+
+export const apiInterviewRefinePresets = (): Promise<Record<string, string>> =>
+  request('/interview/pr/refine-presets')
+
+export interface CompanyPrResult {
+  company_name: string
+  pr_text: string
+  points: string[]
+  ok: boolean
+  error_msg?: string | null
+}
+
+export const apiInterviewCompanyPrs = (data: {
+  base_pr: string
+  companies: { name: string; info: string }[]
+  profile_text?: string
+  messages?: Message[]
+}): Promise<CompanyPrResult[]> =>
+  request('/interview/pr/company', { method: 'POST', body: JSON.stringify(data) })
+
