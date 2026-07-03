@@ -20,6 +20,8 @@ a = Analysis(
         # バックエンドモジュール
         ('main.py', '.'),
         ('utils.py', '.'),
+        ('version_info.py', '.'),
+        ('version.txt', '.'),
         ('api', 'api'),
         ('db', 'db'),
         ('llm', 'llm'),

@@ -34,6 +34,7 @@ SYNCED_RELATIVE_PATHS = [
     "db/knowledge_base_repository.py",
     "db/settings_repository.py",
     "db/personality_repository.py",
+    "db/favorites_repository.py",
     "rag/__init__.py",
     "rag/extraction.py",
     "rag/persistence.py",

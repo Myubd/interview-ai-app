@@ -20,6 +20,8 @@ streamlit/*.spec.bak
 react-fastapi/frontend/dist/
 react-fastapi/frontend/node_modules/
 react-fastapi/frontend/.vite/
+node_modules/
+release.bat
 
 # ============================================================
 # 仮想環境

@@ -19,12 +19,22 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return res.json() as Promise<T>
 }
 
+/** undefined を除外してクエリ文字列を組み立てる（数値・文字列どちらの値もOK）。 */
+function qs(params: Record<string, string | number | undefined>): string {
+  const entries = Object.entries(params).filter(([, v]) => v !== undefined) as [string, string | number][]
+  return new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString()
+}
+
 // ── 型定義 ───────────────────────────────────────────────────
 
 export interface HealthResponse {
   status: 'ok' | 'degraded'
   ollama: boolean
   models: string[]
+}
+
+export interface VersionResponse {
+  version: string
 }
 
 export interface SetupStatus {
@@ -123,6 +133,11 @@ export interface DashboardData {
 
 export const apiHealth = (): Promise<HealthResponse> =>
   request('/health')
+
+// ── Version ──────────────────────────────────────────────────
+
+export const apiGetVersion = (): Promise<VersionResponse> =>
+  request('/version')
 
 // ── Setup ────────────────────────────────────────────────────
 
@@ -287,3 +302,90 @@ export const apiGetSettings = (): Promise<AppSettings> =>
 
 export const apiUpdateSettings = (data: Partial<AppSettings>): Promise<AppSettings> =>
   request('/settings/', { method: 'PATCH', body: JSON.stringify(data) })
+
+// ── Favorites ────────────────────────────────────────────────
+
+export interface Favorite {
+  id: number
+  item_type: string
+  item_id: number | null
+  session_id: number | null
+  company_name: string | null
+  session_type: string | null
+  label: string | null
+  content_snapshot: unknown
+  saved_at: string
+}
+
+export interface FavoritesMeta {
+  item_type_labels: Record<string, string>
+  companies: string[]
+  session_types: string[]
+  count: number
+}
+
+export const apiListFavorites = (params?: {
+  item_type?: string
+  company_name?: string
+  session_type?: string
+}): Promise<Favorite[]> => {
+  const q = params ? qs(params) : ''
+  return request(`/favorites${q ? `?${q}` : ''}`)
+}
+
+export const apiGetFavoritesMeta = (): Promise<FavoritesMeta> =>
+  request('/favorites/meta')
+
+export const apiIsFavorited = (
+  item_type: string,
+  params?: { item_id?: number; session_id?: number },
+): Promise<{ favorited: boolean; favorite_id: number | null }> =>
+  request(`/favorites/is-favorited?${qs({ item_type, ...params })}`)
+
+export const apiCreateFavorite = (data: {
+  item_type: string
+  item_id?: number
+  session_id?: number
+  company_name?: string
+  session_type?: string
+  label?: string
+  content_snapshot?: unknown
+}): Promise<{ id: number }> =>
+  request('/favorites', { method: 'POST', body: JSON.stringify(data) })
+
+export const apiDeleteFavorite = (favoriteId: number): Promise<void> =>
+  request(`/favorites/${favoriteId}`, { method: 'DELETE' })
+
+export const apiDeleteFavoriteByItem = (
+  item_type: string,
+  params?: { item_id?: number; session_id?: number },
+): Promise<void> =>
+  request(`/favorites/by-item?${qs({ item_type, ...params })}`, { method: 'DELETE' })
+
+// ── Predicted Questions ─────────────────────────────────────────
+
+export interface PredictedQuestion {
+  category: string
+  category_label: string
+  question: string
+  model_answer: string
+}
+
+export const apiGeneratePredictedQuestions = (
+  company_kb_id: number,
+): Promise<{ questions: PredictedQuestion[] }> =>
+  request('/predicted-questions/generate', {
+    method: 'POST',
+    body: JSON.stringify({ company_kb_id }),
+  })
+
+export const apiSavePredictedQuestionsAndFavorite = (data: {
+  company_kb_id: number
+  company_name: string
+  questions: PredictedQuestion[]
+}): Promise<{ session_id: number; favorite_id: number }> =>
+  request('/predicted-questions/save-and-favorite', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+

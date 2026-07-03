@@ -16,8 +16,10 @@ import {
   BarChart2,
   Database,
   Settings,
+  Sparkles,
   ExternalLink,
 } from 'lucide-react'
+import { apiGetVersion } from '@/api/client'
 
 interface NavItem {
   to: string
@@ -29,6 +31,7 @@ interface NavItem {
 const REACT_PAGES: NavItem[] = [
   { to: '/',               icon: <Home className="w-5 h-5" />,      label: 'ホーム' },
   { to: '/mock-interview', icon: <Mic2 className="w-5 h-5" />,      label: 'AI模擬面接' },
+  { to: '/predicted-questions', icon: <Sparkles className="w-5 h-5" />, label: '想定質問生成' },
   { to: '/history',        icon: <History className="w-5 h-5" />,   label: '面接履歴' },
   { to: '/dashboard',      icon: <BarChart2 className="w-5 h-5" />, label: 'ダッシュボード' },
   { to: '/knowledge',      icon: <Database className="w-5 h-5" />,  label: 'ナレッジベース' },
@@ -39,12 +42,18 @@ const REACT_PAGES: NavItem[] = [
 const STREAMLIT_FEATURES = [
   '📄 自己PR作成',
   '🏢 企業比較マトリクス',
-  '🎯 想定質問生成',
   '📊 性格診断 (Big Five)',
   '💬 AIキャリアアドバイザー',
 ]
 
 export const Sidebar: React.FC = () => {
+  const [version, setVersion] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    apiGetVersion()
+      .then(res => setVersion(res.version))
+      .catch(() => setVersion(null))
+  }, [])
 
   return (
     <nav className="w-60 flex-shrink-0 bg-white border-r border-surface-200 flex flex-col h-screen sticky top-0">
@@ -59,6 +68,11 @@ export const Sidebar: React.FC = () => {
             <p className="text-xs text-slate-400">React版</p>
           </div>
         </div>
+        {version && (
+          <p className="text-[11px] text-slate-400 mt-2">
+            {version === 'dev' ? '🔖 バージョン: dev（開発環境）' : `🔖 現在のバージョン: ${version}`}
+          </p>
+        )}
       </div>
 
       {/* React ページ */}

@@ -24,6 +24,17 @@ from db.knowledge_base_repository import (
     save_document,
     list_active_documents,
 )
+from db.favorites_repository import (
+    add_favorite,
+    remove_favorite,
+    remove_favorite_by_item,
+    is_favorited,
+    get_favorite_id,
+    list_favorites,
+    list_distinct_companies,
+    list_distinct_session_types,
+    count_favorites,
+)
 
 __all__ = [
     # database
@@ -45,4 +56,14 @@ __all__ = [
     "list_knowledge_bases",
     "save_document",
     "load_active_documents",
+    # favorites
+    "add_favorite",
+    "remove_favorite",
+    "remove_favorite_by_item",
+    "is_favorited",
+    "get_favorite_id",
+    "list_favorites",
+    "list_distinct_companies",
+    "list_distinct_session_types",
+    "count_favorites",
 ]

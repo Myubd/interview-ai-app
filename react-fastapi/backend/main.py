@@ -10,7 +10,8 @@ from __future__ import annotations
 # shared/ ブートストラップ（他のどの import よりも先に実行する）
 # ------------------------------------------------------------
 # industry_engine / persona_engine / mock_interview_engine /
-# answer_assist / prompts パッケージは shared/ に一本化されており、
+# answer_assist / question_prediction / interview_engine / pr_generation /
+# summary_generation / prompts パッケージは shared/ に一本化されており、
 # backend/ 側には物理コピーを置かない。
 # shared/ を sys.path の末尾に「追加」することで、backend/ 側に
 # 存在しないモジュール（上記5つ）だけが shared/ にフォールバックする。
@@ -47,6 +48,10 @@ from fastapi.responses import FileResponse
 
 from api.routes import health, mock_interview, sessions, knowledge_base, settings
 from api.routes import setup_progress   # ← 追加
+from api.routes import favorites        # ← 追加（お気に入り機能）
+from api.routes import predicted_questions  # ← 追加（想定質問生成）
+from api.routes import version          # ← 追加（アプリバージョン表示）
+from api.routes import interview        # ← 追加（自己PR作成フロー）
 from db.database import init_db
 
 logging.basicConfig(level=logging.INFO)
@@ -97,6 +102,33 @@ SSE イベント種別:
     {
         "name": "settings",
         "description": "LLM モデル名・埋め込みモデル名・Ollama ホストの取得と更新。変更は即時反映される。",
+    },
+    {
+        "name": "favorites",
+        "description": (
+            "**お気に入り**の管理。性格診断・企業比較・想定質問・面接履歴・AIキャリア相談など、\n"
+            "各機能から生成された結果を (item_type, item_id, session_id) 単位で保存/解除できる。"
+        ),
+    },
+    {
+        "name": "predicted-questions",
+        "description": (
+            "**想定質問生成**（RAGベース版）。共通履歴書KB + 選択した企業KBから、\n"
+            "面接本番で聞かれそうな質問と模範回答例を8問生成する。\n"
+            "自己PR・インタビュー履歴の完成を前提としない独立した入口。"
+        ),
+    },
+    {
+        "name": "version",
+        "description": "アプリのバージョン文字列を返す。サイドバーの表示用。",
+    },
+    {
+        "name": "interview",
+        "description": (
+            "**自己PR引き出しインタビュー**。テーマ制のQ&Aで学生の強みを掘り下げ、\n"
+            "面接サマリー・自己PR（3パターン）・評価・微調整リライト・企業別カスタマイズPRを生成する。\n"
+            "mock-interview と同じくサーバー側に会話状態を持たないステートレス設計。"
+        ),
     },
 ]
 
@@ -167,6 +199,10 @@ app.include_router(mock_interview.router,  prefix="/api/v1/mock-interview",  tag
 app.include_router(sessions.router,        prefix="/api/v1/sessions",        tags=["sessions"])
 app.include_router(knowledge_base.router,  prefix="/api/v1/knowledge-bases", tags=["knowledge-base"])
 app.include_router(settings.router,        prefix="/api/v1/settings",        tags=["settings"])
+app.include_router(favorites.router,       prefix="/api/v1/favorites",       tags=["favorites"])
+app.include_router(predicted_questions.router, prefix="/api/v1/predicted-questions", tags=["predicted-questions"])
+app.include_router(version.router,         prefix="/api/v1/version",          tags=["version"])
+app.include_router(interview.router,       prefix="/api/v1/interview",        tags=["interview"])
 
 # ── 静的ファイル配信（exe ビルド時のみ） ─────────────────────
 _static_dir = os.environ.get("INTERVIEW_STATIC_DIR", "")

@@ -759,6 +759,14 @@ def main() -> None:
     _cleanup_old_meipass()
     _kill_existing_process(BACKEND_PORT)
 
+    # アップデートチェック（EXE実行時のみ動作。新バージョンがあれば
+    # ダウンロード後に再起動して終了する。失敗してもここで起動を止めない）
+    try:
+        from updater import check_and_update
+        check_and_update()
+    except Exception as e:
+        _log(f"アップデートチェックに失敗しました: {e}", "WARNING")
+
     base = _base_path()
 
     os.environ.setdefault("INTERVIEW_STATIC_DIR", os.path.join(base, "frontend_dist"))

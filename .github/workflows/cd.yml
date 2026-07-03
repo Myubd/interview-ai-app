@@ -104,8 +104,10 @@ jobs:
         run: |
           $tag = "${{ github.ref_name }}"
           $ver = $tag -replace '^v', ''
+          $hash = git rev-parse --short HEAD
           echo "TAG=$tag" >> $env:GITHUB_OUTPUT
           echo "VERSION=$ver" >> $env:GITHUB_OUTPUT
+          echo "FULL_VERSION=$ver+$hash" >> $env:GITHUB_OUTPUT
 
       - name: Build React frontend
         working-directory: react-fastapi/frontend
@@ -119,6 +121,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pyinstaller==6.21.0
+
+      - name: Write version file
+        working-directory: react-fastapi/backend
+        run: |
+          echo "${{ steps.version.outputs.FULL_VERSION }}" > version.txt
 
       - name: Build EXE
         working-directory: react-fastapi/backend

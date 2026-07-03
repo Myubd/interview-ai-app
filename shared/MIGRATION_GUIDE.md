@@ -55,6 +55,10 @@ if str(_SHARED_DIR) not in sys.path:
 | `industry_engine.py` | 業界別面接モード定義 |
 | `mock_interview_engine.py` | AI模擬面接エンジン |
 | `persona_engine.py` | 面接官ペルソナ管理 |
+| `interview_engine.py` | 自己PR引き出しインタビューのテーマ制Q&Aエンジン（utils・prompts.interviewer にのみ依存） |
+| `pr_generation.py` | 自己PR生成・評価・企業別カスタマイズ・微調整リライト（utils にのみ依存） |
+| `summary_generation.py` | 面接サマリー（強み・弱み・業界フィット度）生成（utils にのみ依存） |
+| `question_prediction.py` | 想定質問生成（自己PR・履歴書＋企業情報から模範回答例つき質問セットを生成。utils にのみ依存） |
 | `prompts/` (5ファイル) | プロンプトテンプレート（他モジュールへの依存なし・完全に自己完結） |
 
 これらのファイルは now **`shared/` にしか存在しません**。`streamlit/` や
@@ -65,7 +69,7 @@ if str(_SHARED_DIR) not in sys.path:
 
 | ファイル/ディレクトリ | 理由 |
 |---|---|
-| `db/`（`database.py`, `session_repository.py`, `knowledge_base_repository.py`, `settings_repository.py`, `personality_repository.py`, `__init__.py`） | パッケージ相対 import（`from db.database import ...` 等）はパッケージの `__init__.py` と同一ディレクトリ内でサブモジュールを探索するため、`db/` パッケージ全体を分割配置できない。さらに `database.py` はデフォルトDB保存先を `__file__` の場所から算出するため、アプリごとに物理的に独立している必要がある |
+| `db/`（`database.py`, `session_repository.py`, `knowledge_base_repository.py`, `settings_repository.py`, `personality_repository.py`, `favorites_repository.py`, `__init__.py`） | パッケージ相対 import（`from db.database import ...` 等）はパッケージの `__init__.py` と同一ディレクトリ内でサブモジュールを探索するため、`db/` パッケージ全体を分割配置できない。さらに `database.py` はデフォルトDB保存先を `__file__` の場所から算出するため、アプリごとに物理的に独立している必要がある |
 | `rag/__init__.py`, `rag/extraction.py`, `rag/persistence.py` | 同上の理由（`rag.__init__` が `from rag.core import ...` するため、`core.py` と同一ディレクトリに存在する必要がある） |
 | `rag/core.py` | Streamlit/FastAPI間で埋め込みAPIの呼び出し方が異なる（Streamlit: 直接 `ollama.Client`、FastAPI: 接続プーリング付き `llm.ollama_client`）、正当な実装差分 |
 | `utils.py` / `utils/` | Streamlit側はパッケージ化済み、FastAPI側は別管理。両者とも `industry_engine.py` 等から `from utils import ...` で参照されるが、これは通常のトップレベル import なので `sys.path` 上でどちらのアプリのものが見つかるかは問題にならない（各アプリ自身のディレクトリが `shared/` より先に解決されるため、意図通りアプリ固有の `utils` が使われる） |
@@ -83,7 +87,7 @@ diff shared/rag/extraction.py react-fastapi/backend/rag/extraction.py
 diff shared/rag/persistence.py streamlit/rag/persistence.py
 diff shared/rag/persistence.py react-fastapi/backend/rag/persistence.py
 # db/session_repository.py, knowledge_base_repository.py, settings_repository.py,
-# personality_repository.py, __init__.py, rag/__init__.py も同様に確認
+# personality_repository.py, favorites_repository.py, __init__.py, rag/__init__.py も同様に確認
 ```
 
 ## セットアップ手順（新規クローン時）
