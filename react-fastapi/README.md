@@ -49,16 +49,18 @@ graph LR
 | 機能 | 状態 |
 |------|------|
 | AI模擬面接 | ✅ |
+| 自己PR作成（動的インタビュー） | ✅ |
+| 想定質問生成 | ✅ |
+| 性格診断（Big Five） | ✅ |
+| 企業比較マトリクス | ✅ |
+| AIキャリアアドバイザー | ✅ |
 | 面接履歴 | ✅ |
 | ダッシュボード（スコア集計） | ✅ |
 | ナレッジベース管理（RAG） | ✅ |
 | 設定 | ✅ |
 | 初回セットアップ進捗表示 | ✅ |
-| 動的インタビュー・自己PR生成 | 🔜 Streamlit版に残存 |
-| 企業比較マトリクス | 🔜 Streamlit版に残存 |
-| 性格診断（Big Five） | 🔜 Streamlit版に残存 |
-| AIキャリアアドバイザー | 🔜 Streamlit版に残存 |
-| 想定質問生成 | 🔜 Streamlit版に残存 |
+
+> 全機能の移行が完了しています。Streamlit版からの移行過程・設計判断は [`shared/MIGRATION_GUIDE.md`](../shared/MIGRATION_GUIDE.md) を参照してください。
 
 ---
 
@@ -165,18 +167,32 @@ react-fastapi/
 ├── backend/
 │   ├── main.py                    # FastAPI エントリポイント・CORS・ルーター登録
 │   ├── api/routes/
-│   │   ├── health.py              # GET /api/v1/health
-│   │   ├── setup_progress.py      # GET /api/v1/setup/status, /progress (SSE)
-│   │   ├── mock_interview.py      # POST /api/v1/mock-interview/* (SSE対応)
-│   │   ├── sessions.py            # CRUD /api/v1/sessions/* + /dashboard
-│   │   ├── knowledge_base.py      # /api/v1/knowledge-bases/*
-│   │   └── settings.py            # /api/v1/settings/
+│   │   ├── health.py               # GET /api/v1/health
+│   │   ├── setup_progress.py       # GET /api/v1/setup/status, /progress (SSE)
+│   │   ├── mock_interview.py       # /api/v1/mock-interview/* (SSE対応)
+│   │   ├── interview.py            # /api/v1/interview/* （自己PR作成フロー）
+│   │   ├── predicted_questions.py  # /api/v1/predicted-questions/*
+│   │   ├── personality.py          # /api/v1/personality/* （性格診断）
+│   │   ├── company_matrix.py       # /api/v1/company-matrix/* （企業比較マトリクス）
+│   │   ├── career_advisor.py       # /api/v1/career-advisor/* （AIキャリアアドバイザー）
+│   │   ├── sessions.py             # CRUD /api/v1/sessions/* + /dashboard
+│   │   ├── knowledge_base.py       # /api/v1/knowledge-bases/*
+│   │   ├── favorites.py            # /api/v1/favorites/*
+│   │   ├── settings.py             # /api/v1/settings/
+│   │   └── version.py              # GET /api/v1/version
 │   ├── services/
-│   │   └── interview_service.py   # 面接ビジネスロジック・SSEイベント生成
+│   │   ├── interview_service.py         # 模擬面接ビジネスロジック・SSEイベント生成
+│   │   ├── interview_flow_service.py    # 自己PR作成フロー（テーマ制インタビュー）
+│   │   ├── prediction_service.py        # 想定質問生成
+│   │   ├── personality_service.py       # 性格診断
+│   │   ├── company_matrix_service.py    # 企業比較マトリクス
+│   │   ├── career_advisor_service.py    # AIキャリアアドバイザー（DB依存のコンテキスト構築）
+│   │   └── rag_helpers.py               # RAG検索・会話履歴整形の共通ヘルパー
 │   ├── llm/
 │   │   ├── base.py                # LLMProvider 抽象クラス
 │   │   ├── ollama_provider.py     # Ollama 実装（OpenAI/Claude スタブあり）
 │   │   └── __init__.py            # DI 管理
+│   ├── db/                        # SQLite データベース層（各種 repository）
 │   ├── shared -> ../../shared/    # 共通モジュール（シンボリックリンク）
 │   └── tests/
 │       ├── test_unit.py
@@ -185,15 +201,23 @@ react-fastapi/
 └── frontend/
     └── src/
         ├── api/client.ts              # 型付き REST API クライアント
-        ├── hooks/useMockInterview.ts  # 面接状態管理・SSE ストリーミング
+        ├── hooks/
+        │   ├── useMockInterview.ts    # 模擬面接状態管理・SSE ストリーミング
+        │   └── useInterviewFlow.ts    # 自己PR作成フローの状態管理
         ├── components/
         │   ├── Sidebar.tsx            # ナビゲーション
         │   └── ui.tsx                 # Button / Card / Badge 等
         └── pages/
             ├── HomePage.tsx
-            ├── SetupProgressPage.tsx  # 初回セットアップ進捗（SSE購読）
-            ├── MockInterviewPage.tsx  # 設定→面接→評価の3フェーズ
-            ├── DashboardPage.tsx      # スコア集計ダッシュボード
+            ├── SetupProgressPage.tsx      # 初回セットアップ進捗（SSE購読）
+            ├── MockInterviewPage.tsx      # 設定→面接→評価の3フェーズ
+            ├── InterviewPage.tsx          # 自己PR作成（動的インタビュー）
+            ├── interview/                 # ↑の各セクション（プロフィール入力・チャット・PR生成 等）
+            ├── PredictedQuestionsPage.tsx
+            ├── PersonalityPage.tsx        # 性格診断（Big Five）
+            ├── CompanyMatrixPage.tsx      # 企業比較マトリクス
+            ├── CareerAdvisorPage.tsx      # AIキャリアアドバイザー
+            ├── DashboardPage.tsx          # スコア集計ダッシュボード
             ├── HistoryPage.tsx
             ├── KnowledgePage.tsx
             └── SettingsPage.tsx
@@ -217,6 +241,35 @@ mindmap
       POST /evaluate
       GET /personas
       GET /themes
+    interview
+      POST /start
+      POST /next
+      POST /choose-category
+      POST /summary
+      POST /pr/variants
+      POST /pr/evaluate
+      POST /pr/refine
+      POST /pr/company
+    predicted-questions
+      POST /generate
+      POST /generate-from-pr
+      POST /save-and-favorite
+      POST /save-and-favorite-pr-based
+    personality
+      GET /questions
+      POST /submit
+      POST /save-and-favorite
+      GET /result/:session_id
+    company-matrix
+      GET /companies
+      GET /constants
+      POST /motivations
+      POST /matrix
+      POST /matrix/export-csv
+      POST /why-not-others
+    career-advisor
+      GET /sessions
+      POST /chat
     sessions
       GET POST /
       GET /dashboard
@@ -230,6 +283,13 @@ mindmap
       DELETE /:id
       PATCH /:id/active
       POST /:id/search
+    favorites
+      GET /
+      POST /
+      DELETE /:id
+      GET /is-favorited
+      DELETE /by-item
+      GET /meta
     settings
       GET PATCH /
 ```
@@ -244,6 +304,28 @@ mindmap
 | POST | /api/v1/mock-interview/evaluate | 終了後評価生成 |
 | GET | /api/v1/mock-interview/personas | ペルソナ一覧 |
 | GET | /api/v1/mock-interview/themes | テーマ一覧 |
+| POST | /api/v1/interview/start | 自己PR作成インタビュー開始 |
+| POST | /api/v1/interview/next | 次の質問取得（テーマ制Q&A） |
+| POST | /api/v1/interview/choose-category | カテゴリ選択 |
+| POST | /api/v1/interview/summary | 面接サマリー生成 |
+| POST | /api/v1/interview/pr/variants | 自己PR3パターン生成 |
+| POST | /api/v1/interview/pr/evaluate | 自己PR評価 |
+| POST | /api/v1/interview/pr/refine | 自己PR微調整リライト |
+| POST | /api/v1/interview/pr/company | 企業別カスタマイズPR生成 |
+| POST | /api/v1/predicted-questions/generate | 想定質問生成（企業KBベース） |
+| POST | /api/v1/predicted-questions/generate-from-pr | 想定質問生成（自己PRベース） |
+| POST | /api/v1/predicted-questions/save-and-favorite | 生成結果を保存＋お気に入り登録 |
+| POST | /api/v1/predicted-questions/save-and-favorite-pr-based | 生成結果（自己PRベース）を保存＋お気に入り登録 |
+| GET | /api/v1/personality/questions | 性格診断の設問一覧取得 |
+| POST | /api/v1/personality/submit | 回答送信・AI診断結果生成 |
+| POST | /api/v1/personality/save-and-favorite | 診断結果を保存＋お気に入り登録 |
+| GET | /api/v1/personality/result/{session_id} | 保存済み診断結果取得 |
+| GET | /api/v1/company-matrix/companies | 比較対象の企業KB一覧取得 |
+| POST | /api/v1/company-matrix/motivations | 志望動機の一括生成 |
+| POST | /api/v1/company-matrix/matrix | 比較マトリクス生成 |
+| POST | /api/v1/company-matrix/why-not-others | 差別化ポイント生成 |
+| GET | /api/v1/career-advisor/sessions | コンテキスト用の保存済みセッション一覧取得 |
+| POST | /api/v1/career-advisor/chat | キャリア相談チャット応答生成 |
 | GET / POST | /api/v1/sessions/ | セッション一覧・作成 |
 | GET | /api/v1/sessions/dashboard | ダッシュボード用スコア集計データ取得 |
 | GET / PATCH / DELETE | /api/v1/sessions/{id} | セッション取得・更新・削除 |
@@ -255,6 +337,10 @@ mindmap
 | DELETE | /api/v1/knowledge-bases/{id} | KB 削除 |
 | PATCH | /api/v1/knowledge-bases/{id}/active | アクティブ切り替え |
 | POST | /api/v1/knowledge-bases/{id}/search | RAG 類似検索 |
+| GET / POST | /api/v1/favorites/ | お気に入り一覧・追加 |
+| DELETE | /api/v1/favorites/{id} | お気に入り削除 |
+| GET | /api/v1/favorites/is-favorited | お気に入り登録済みか確認 |
+| DELETE | /api/v1/favorites/by-item | 対象アイテム指定での削除 |
 | GET / PATCH | /api/v1/settings/ | 設定取得・更新 |
 
 全エンドポイントの詳細は起動後に http://localhost:8000/docs で確認できます。

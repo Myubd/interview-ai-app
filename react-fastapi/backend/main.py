@@ -52,6 +52,9 @@ from api.routes import favorites        # ← 追加（お気に入り機能）
 from api.routes import predicted_questions  # ← 追加（想定質問生成）
 from api.routes import version          # ← 追加（アプリバージョン表示）
 from api.routes import interview        # ← 追加（自己PR作成フロー）
+from api.routes import personality      # ← 追加（性格診断）
+from api.routes import company_matrix   # ← 追加（企業比較マトリクス）
+from api.routes import career_advisor   # ← 追加（AIキャリアアドバイザー）
 from db.database import init_db
 
 logging.basicConfig(level=logging.INFO)
@@ -130,6 +133,29 @@ SSE イベント種別:
             "mock-interview と同じくサーバー側に会話状態を持たないステートレス設計。"
         ),
     },
+    {
+        "name": "personality",
+        "description": (
+            "**性格診断・適性検査**（ビッグファイブ30問）。回答から5因子スコア・回答整合性・\n"
+            "業界別フィット度・おすすめ職種を算出し、AIによる総合コメントを生成する。"
+        ),
+    },
+    {
+        "name": "company-matrix",
+        "description": (
+            "**企業比較マトリクス**。登録済みの企業KB（最大8社）から、志望動機の一括生成・\n"
+            "固定7軸＋追加軸での比較スコアリング・「なぜ他社でなくこの企業か」の\n"
+            "差別化ポイントをまとめて生成する。"
+        ),
+    },
+    {
+        "name": "career-advisor",
+        "description": (
+            "**AIキャリアアドバイザー**（就活相談チャット）。ガクチカ相談・ES添削・面接不安・\n"
+            "業界研究など就活全般の相談に答える。保存済みセッションを指定すると、\n"
+            "面接内容・自己PR・模擬面接評価・性格診断結果を踏まえたパーソナライズ回答になる。"
+        ),
+    },
 ]
 
 # ============================================================
@@ -203,6 +229,9 @@ app.include_router(favorites.router,       prefix="/api/v1/favorites",       tag
 app.include_router(predicted_questions.router, prefix="/api/v1/predicted-questions", tags=["predicted-questions"])
 app.include_router(version.router,         prefix="/api/v1/version",          tags=["version"])
 app.include_router(interview.router,       prefix="/api/v1/interview",        tags=["interview"])
+app.include_router(personality.router,     prefix="/api/v1/personality",      tags=["personality"])
+app.include_router(company_matrix.router,  prefix="/api/v1/company-matrix",   tags=["company-matrix"])
+app.include_router(career_advisor.router,  prefix="/api/v1/career-advisor",   tags=["career-advisor"])
 
 # ── 静的ファイル配信（exe ビルド時のみ） ─────────────────────
 _static_dir = os.environ.get("INTERVIEW_STATIC_DIR", "")

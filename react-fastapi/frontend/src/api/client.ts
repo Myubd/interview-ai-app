@@ -512,3 +512,159 @@ export const apiInterviewCompanyPrs = (data: {
 }): Promise<CompanyPrResult[]> =>
   request('/interview/pr/company', { method: 'POST', body: JSON.stringify(data) })
 
+// ── Personality（性格診断・適性検査）─────────────────────────────
+// streamlit版 page_modules/personality_page.py が相当する。
+
+export interface PersonalityQuestion {
+  id: number
+  axis: string
+  text: string
+  reverse: boolean
+}
+
+export interface PersonalityQuestionsResponse {
+  axes: Record<string, string>
+  questions: PersonalityQuestion[]
+  scale_labels: Record<number, string>
+  total_questions: number
+}
+
+export const apiGetPersonalityQuestions = (): Promise<PersonalityQuestionsResponse> =>
+  request('/personality/questions')
+
+export interface PersonalityStrength { point: string; detail?: string }
+export interface PersonalityCaution { point: string; hint?: string }
+export interface PersonalityRole { role: string; score: number }
+export interface PersonalityIndustryFitEntry { score: number; reason?: string }
+
+export interface PersonalityResult {
+  axis_scores: Record<string, number>
+  consistency_score: number
+  personality_summary: string
+  strengths: PersonalityStrength[]
+  cautions: PersonalityCaution[]
+  fit_environments: string
+  industry_fit: Record<string, PersonalityIndustryFitEntry>
+  recommended_roles: PersonalityRole[]
+  interview_strengths: string[]
+  interview_risks: string[]
+  interview_tips: string
+}
+
+export const apiSubmitPersonality = (
+  answers: Record<number, number>,
+): Promise<PersonalityResult> =>
+  request('/personality/submit', { method: 'POST', body: JSON.stringify({ answers }) })
+
+export const apiSavePersonalityAndFavorite = (data: {
+  answers: Record<number, number>
+  axis_scores: Record<string, number>
+  result: PersonalityResult
+  session_id?: number | null
+  company_name?: string | null
+}): Promise<{ session_id: number; favorite_id: number }> =>
+  request('/personality/save-and-favorite', { method: 'POST', body: JSON.stringify(data) })
+
+// ── Company Matrix（企業比較マトリクス）─────────────────────────
+// streamlit版 page_modules/company_matrix_page.py が相当する。
+
+export interface CompanyMatrixConstants {
+  max_companies: number
+  matrix_axes_fixed: string[]
+  value_fit_axis_key: string
+  value_fit_note: string
+}
+
+export const apiGetCompanyMatrixConstants = (): Promise<CompanyMatrixConstants> =>
+  request('/company-matrix/constants')
+
+export const apiGetCompanyMatrixCompanies = (): Promise<KnowledgeBase[]> =>
+  request('/company-matrix/companies')
+
+export interface MotivationResult {
+  company_name: string
+  motivation_text: string
+  key_points: string[]
+  ok: boolean
+  error_msg?: string | null
+}
+
+export const apiGenerateMotivations = (data: {
+  company_kb_ids: number[]
+  pr_text?: string
+  profile_text?: string
+  messages?: Message[]
+}): Promise<MotivationResult[]> =>
+  request('/company-matrix/motivations', { method: 'POST', body: JSON.stringify(data) })
+
+export interface MatrixCell { score: number; comment: string }
+
+export interface MatrixResult {
+  axes: string[]
+  companies: string[]
+  matrix: Record<string, Record<string, MatrixCell>>
+  overall_recommendation: string
+  ok: boolean
+  error_msg?: string | null
+}
+
+export const apiGenerateMatrix = (data: {
+  company_kb_ids: number[]
+  pr_text?: string
+  additional_axes?: string[]
+}): Promise<MatrixResult> =>
+  request('/company-matrix/matrix', { method: 'POST', body: JSON.stringify(data) })
+
+export const apiExportMatrixCsv = async (result: MatrixResult): Promise<string> => {
+  const res = await fetch(`${BASE}/company-matrix/matrix/export-csv`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(result),
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.text()
+}
+
+export interface Differentiator { point: string; vs_others?: string }
+
+export interface WhyNotResult {
+  target_name: string
+  differentiators: Differentiator[]
+  answer_template: string
+  ok: boolean
+  error_msg?: string | null
+}
+
+export const apiGenerateWhyNotOthers = (data: {
+  target_kb_id: number
+  other_kb_ids: number[]
+  pr_text?: string
+  profile_text?: string
+  messages?: Message[]
+}): Promise<WhyNotResult> =>
+  request('/company-matrix/why-not-others', { method: 'POST', body: JSON.stringify(data) })
+
+// ── Career Advisor（AIキャリアアドバイザー）──────────────────────
+// streamlit版 page_modules/career_page.py が相当する。
+
+export interface CareerAdvisorSessionSummary {
+  id: number
+  company_name: string | null
+  session_type: string | null
+  status: string
+  interview_complete: number
+  created_at: string
+  updated_at: string
+  has_mock_evaluation: number
+}
+
+export const apiGetCareerAdvisorSessions = (): Promise<CareerAdvisorSessionSummary[]> =>
+  request('/career-advisor/sessions')
+
+export const apiCareerAdvisorChat = (data: {
+  messages: Message[]
+  session_id?: number | null
+}): Promise<{ reply: string; ok: boolean; error_msg?: string | null }> =>
+  request('/career-advisor/chat', { method: 'POST', body: JSON.stringify(data) })
+
+

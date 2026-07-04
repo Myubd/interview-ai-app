@@ -8,6 +8,9 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { KnowledgePage } from '@/pages/KnowledgePage'
 import { PredictedQuestionsPage } from '@/pages/PredictedQuestionsPage'
 import { InterviewPage } from '@/pages/InterviewPage'
+import { PersonalityPage } from '@/pages/PersonalityPage'
+import { CompanyMatrixPage } from '@/pages/CompanyMatrixPage'
+import { CareerAdvisorPage } from '@/pages/CareerAdvisorPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { SetupProgressPage } from '@/pages/SetupProgressPage'
 
@@ -30,6 +33,9 @@ export default function App() {
           <Route path="/knowledge"      element={<KnowledgePage />} />
           <Route path="/predicted-questions" element={<PredictedQuestionsPage />} />
           <Route path="/interview" element={<InterviewPage />} />
+          <Route path="/personality" element={<PersonalityPage />} />
+          <Route path="/company-matrix" element={<CompanyMatrixPage />} />
+          <Route path="/career-advisor" element={<CareerAdvisorPage />} />
           <Route path="/settings"       element={<SettingsPage />} />
         </Routes>
       </main>

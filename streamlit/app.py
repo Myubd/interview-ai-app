@@ -11,14 +11,11 @@ startup.run()
 import streamlit as st
 
 from components.sidebar import render_sidebar
-from page_modules.career_page import render as render_career
-from page_modules.personality_page import render as render_personality
 from page_modules.mock_interview import render as render_mock_interview
-from page_modules.company_matrix_page import render_company_matrix
 from page_modules.predict_questions_page import render_predict_questions
 from page_modules.history_page import render_history
 from page_modules.dashboard_page import render as render_dashboard
-from page_modules.interview import render as render_interview, build_conversation_history
+from page_modules.interview import render as render_interview
 from state.initializer import init_session_state
 
 # ============================================================
@@ -36,14 +33,6 @@ model_name = render_sidebar()
 # ============================================================
 mode = st.session_state.app_mode
 
-if mode == "career_advisor":
-    render_career(model_name)
-    st.stop()
-
-if mode == "personality":
-    render_personality(model_name)
-    st.stop()
-
 if mode == "mock_interview":
     render_mock_interview(model_name)
     st.stop()
@@ -54,10 +43,6 @@ if mode == "predict_questions":
 
 if mode == "history":
     render_history()
-    st.stop()
-
-if mode == "company_matrix":
-    render_company_matrix(model_name, build_conversation_history)
     st.stop()
 
 if mode == "dashboard":

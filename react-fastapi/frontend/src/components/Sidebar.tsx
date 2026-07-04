@@ -1,10 +1,9 @@
 /**
  * components/Sidebar.tsx
  * React版のページナビゲーション。
- * Streamlit 版に残る機能はリンクでなく外部遷移ボタンとして表示。
  *
  * [変更点]
- * - ダッシュボードページへのナビゲーション項目を追加。
+ * - 全機能のReact版移行が完了したため、Streamlit版への外部リンクセクションを削除。
  */
 import React from 'react'
 import { NavLink } from 'react-router-dom'
@@ -18,7 +17,9 @@ import {
   Settings,
   Sparkles,
   MessageSquareText,
-  ExternalLink,
+  Brain,
+  Building2,
+  Bot,
 } from 'lucide-react'
 import { apiGetVersion } from '@/api/client'
 
@@ -34,17 +35,13 @@ const REACT_PAGES: NavItem[] = [
   { to: '/mock-interview', icon: <Mic2 className="w-5 h-5" />,      label: 'AI模擬面接' },
   { to: '/interview',      icon: <MessageSquareText className="w-5 h-5" />, label: '自己PR作成' },
   { to: '/predicted-questions', icon: <Sparkles className="w-5 h-5" />, label: '想定質問生成' },
+  { to: '/personality',    icon: <Brain className="w-5 h-5" />,     label: '性格診断' },
+  { to: '/company-matrix', icon: <Building2 className="w-5 h-5" />, label: '企業比較マトリクス' },
+  { to: '/career-advisor', icon: <Bot className="w-5 h-5" />,       label: 'AIキャリアアドバイザー' },
   { to: '/history',        icon: <History className="w-5 h-5" />,   label: '面接履歴' },
   { to: '/dashboard',      icon: <BarChart2 className="w-5 h-5" />, label: 'ダッシュボード' },
   { to: '/knowledge',      icon: <Database className="w-5 h-5" />,  label: 'ナレッジベース' },
   { to: '/settings',       icon: <Settings className="w-5 h-5" />,  label: '設定' },
-]
-
-// Streamlitに残る機能（自己PR作成はReact版に移行済みのためここから除外）
-const STREAMLIT_FEATURES = [
-  '🏢 企業比較マトリクス',
-  '📊 性格診断 (Big Five)',
-  '💬 AIキャリアアドバイザー',
 ]
 
 export const Sidebar: React.FC = () => {
@@ -103,32 +100,6 @@ export const Sidebar: React.FC = () => {
                     </span>
                   )}
                 </NavLink>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Streamlit 版へのリンク */}
-        <div className="px-3 mt-4 pt-4 border-t border-surface-100">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-2 mb-1">
-            他の機能（別タブで開きます）
-          </p>
-          <p className="text-[11px] text-slate-400 px-2 mb-2 leading-relaxed">
-            React版への移行が完了するまでの間、以下は旧UI（Streamlit）で提供しています。
-          </p>
-          <ul className="space-y-0.5">
-            {STREAMLIT_FEATURES.map(f => (
-              <li key={f}>
-                <a
-                  href="http://localhost:8501"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-slate-500 hover:text-slate-700 hover:bg-surface-50 transition-colors"
-                  aria-label={`${f}（Streamlit版を新しいタブで開く）`}
-                >
-                  <span className="flex-1">{f}</span>
-                  <ExternalLink className="w-3 h-3 opacity-50" aria-hidden="true" />
-                </a>
               </li>
             ))}
           </ul>

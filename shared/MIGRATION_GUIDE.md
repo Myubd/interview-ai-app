@@ -59,6 +59,9 @@ if str(_SHARED_DIR) not in sys.path:
 | `pr_generation.py` | 自己PR生成・評価・企業別カスタマイズ・微調整リライト（utils にのみ依存） |
 | `summary_generation.py` | 面接サマリー（強み・弱み・業界フィット度）生成（utils にのみ依存） |
 | `question_prediction.py` | 想定質問生成（自己PR・履歴書＋企業情報から模範回答例つき質問セットを生成。utils にのみ依存） |
+| `personality_assessment.py` | 性格診断（ビッグファイブ30問・スコア集計・業界適性・AI結果生成。utils にのみ依存。React版移行時に一本化） |
+| `company_matrix.py` | 企業比較マトリクス（志望動機一括生成・比較マトリクス・差別化ポイント生成。utils にのみ依存。React版移行時に一本化） |
+| `career_advisor.py` | AIキャリアアドバイザーのプロンプト・LLM呼び出し（utils にのみ依存。コンテキスト構築はDB依存のためアプリ側に残す。React版移行時に一本化） |
 | `prompts/` (5ファイル) | プロンプトテンプレート（他モジュールへの依存なし・完全に自己完結） |
 
 これらのファイルは now **`shared/` にしか存在しません**。`streamlit/` や

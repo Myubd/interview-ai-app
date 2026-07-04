@@ -4,9 +4,23 @@
  */
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mic2, History, Database, Settings, AlertCircle, CheckCircle2, Loader2, ExternalLink } from 'lucide-react'
+import {
+  Mic2,
+  History,
+  Database,
+  Settings,
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+  MessageSquareText,
+  Sparkles,
+  Brain,
+  Building2,
+  Bot,
+  BarChart2,
+} from 'lucide-react'
 import { apiHealth, type HealthResponse } from '@/api/client'
-import { Button, Card } from '@/components/ui'
+import { Card } from '@/components/ui'
 
 interface FeatureCard {
   title: string
@@ -25,11 +39,53 @@ const FEATURES: FeatureCard[] = [
     color: 'text-brand-500',
   },
   {
+    title: '自己PR作成',
+    description: 'テーマ制のインタビューで強みを掘り下げ、自己PR（3パターン）を生成・評価・微調整する。',
+    icon: <MessageSquareText className="w-6 h-6" />,
+    to: '/interview',
+    color: 'text-indigo-500',
+  },
+  {
+    title: '想定質問生成',
+    description: '自己PRと企業情報から、模範回答例つきの想定質問セットを生成する。',
+    icon: <Sparkles className="w-6 h-6" />,
+    to: '/predicted-questions',
+    color: 'text-pink-500',
+  },
+  {
+    title: '性格診断',
+    description: 'ビッグファイブ30問から5因子スコア・業界フィット度・おすすめ職種を分析する。',
+    icon: <Brain className="w-6 h-6" />,
+    to: '/personality',
+    color: 'text-purple-500',
+  },
+  {
+    title: '企業比較マトリクス',
+    description: '複数企業の志望動機を一括生成し、比較マトリクス・差別化ポイントをまとめて作成する。',
+    icon: <Building2 className="w-6 h-6" />,
+    to: '/company-matrix',
+    color: 'text-cyan-600',
+  },
+  {
+    title: 'AIキャリアアドバイザー',
+    description: 'ガクチカ相談・ES添削・業界研究など、就活に関することは何でも相談できるチャット。',
+    icon: <Bot className="w-6 h-6" />,
+    to: '/career-advisor',
+    color: 'text-orange-500',
+  },
+  {
     title: '面接履歴',
     description: 'これまでの面接セッションを保存・閲覧。続きから再開したりJSONでエクスポートも可能。',
     icon: <History className="w-6 h-6" />,
     to: '/history',
     color: 'text-emerald-500',
+  },
+  {
+    title: 'ダッシュボード',
+    description: 'これまでのセッションを横断して、強み・弱みの傾向や練習の進捗を可視化する。',
+    icon: <BarChart2 className="w-6 h-6" />,
+    to: '/dashboard',
+    color: 'text-teal-500',
   },
   {
     title: 'ナレッジベース',
@@ -60,7 +116,7 @@ export const HomePage: React.FC = () => {
   }, [])
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-10 animate-fade-in">
+    <div className="max-w-5xl mx-auto px-6 py-10 animate-fade-in">
       {/* ヘッダー */}
       <div className="mb-10">
         <h1 className="text-2xl font-bold text-slate-900 mb-2">就活インタビューAI</h1>
@@ -102,7 +158,7 @@ export const HomePage: React.FC = () => {
       </div>
 
       {/* 機能カード */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {FEATURES.map(f => (
           <Card key={f.to} onClick={() => navigate(f.to)} className="p-5 hover:shadow-md">
             <div className={`${f.color} mb-3`}>{f.icon}</div>
@@ -110,24 +166,6 @@ export const HomePage: React.FC = () => {
             <p className="text-xs text-slate-500 leading-relaxed">{f.description}</p>
           </Card>
         ))}
-      </div>
-
-      {/* Streamlit 誘導 */}
-      <div className="mt-8 p-4 bg-surface-50 rounded-xl border border-surface-200">
-        <p className="text-xs text-slate-500 mb-1 font-medium">自己PR生成・企業比較など他の機能</p>
-        <p className="text-xs text-slate-400 mb-3">
-          これらの機能は移行作業中のため、別画面（Streamlit版）で新しいタブが開きます。
-          今の画面はそのまま残ります。
-        </p>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => window.open('http://localhost:8501', '_blank', 'noopener,noreferrer')}
-          icon={<ExternalLink className="w-3.5 h-3.5" />}
-          aria-label="Streamlit版を新しいタブで開く"
-        >
-          Streamlit版を開く（別タブ）
-        </Button>
       </div>
     </div>
   )

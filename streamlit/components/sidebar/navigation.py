@@ -49,11 +49,8 @@ def render_navigation() -> None:
 
     _nav_items = [
         ("📄", "自己PR作成",          "interview"),
-        ("🤖", "AIキャリアアドバイザー", "career_advisor"),
-        ("📊", "性格診断",             "personality"),
         ("🎯", "想定質問生成",          "predict_questions"),
         ("🎤", "AI模擬面接",           "mock_interview"),
-        ("🏢", "企業比較マトリクス",    "company_matrix"),
         ("📈", "ダッシュボード",        "dashboard"),
         ("✅", "面接履歴",             "history"),
     ]
@@ -66,14 +63,7 @@ def render_navigation() -> None:
             use_container_width=True,
             type="primary" if _is_current else "secondary",
         ):
-            if _mode == "personality":
-                st.session_state.app_mode = "personality"
-                st.session_state.pa_answers = {}
-                st.session_state.pa_current_q = 0
-                st.session_state.pa_result = None
-                st.session_state.pa_axis_scores = None
-                st.session_state.pa_error = None
-            elif _mode == "mock_interview":
+            if _mode == "mock_interview":
                 st.session_state.app_mode = "mock_interview"
                 st.session_state.mock_messages = []
                 st.session_state.mock_theme_index = 0

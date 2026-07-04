@@ -4,6 +4,11 @@ personality_assessment.py
 
 就活向け性格診断モジュール
 
+[shared/ 一本化 (2026-07)]
+utils にのみ依存し、db・rag のようなアプリ固有の兄弟モジュールに
+依存しないため、streamlit/ react-fastapi/backend/ の物理コピーを
+廃止し shared/ に一本化した。詳細は shared/MIGRATION_GUIDE.md を参照。
+
 v2改善内容
 - Big Five 30問化
 - consistency_score追加

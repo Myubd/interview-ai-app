@@ -13,6 +13,13 @@
 | `mock_interview_engine.py` | AI模擬面接エンジン（質問生成・深掘り判定・評価） |
 | `persona_engine.py` | 面接官ペルソナの管理 |
 | `industry_engine.py` | 業界別面接モードの定義 |
+| `interview_engine.py` | 自己PR引き出しインタビューのテーマ制Q&Aエンジン |
+| `pr_generation.py` | 自己PR生成・評価・企業別カスタマイズ・微調整リライト |
+| `summary_generation.py` | 面接サマリー（強み・弱み・業界フィット度）生成 |
+| `question_prediction.py` | 想定質問生成 |
+| `personality_assessment.py` | 性格診断（ビッグファイブ30問）のスコア集計・AI結果生成 |
+| `company_matrix.py` | 企業比較マトリクス（志望動機一括生成・比較・差別化ポイント生成） |
+| `career_advisor.py` | AIキャリアアドバイザーのプロンプト・LLM呼び出し |
 | `answer_assist.py` | 回答アシスト機能 |
 | `prompts/` | LLM プロンプトテンプレート一式。ハルシネーション防止ガード（`guards.py`）を含む |
 | `check_sync.py` | `db/` `rag/`（`core.py`除く）が `shared/` / `streamlit/` / `react-fastapi/backend/` の3箇所で内容一致しているかを検証するスクリプト（CIで実行） |

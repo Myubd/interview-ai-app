@@ -1,6 +1,11 @@
 """
 pages/career_page.py
 AIキャリアアドバイザーページ
+
+[shared/ 一本化]
+プロンプト・LLM呼び出し本体は career_advisor.py（shared/ に一本化済み）に
+切り出した。このファイルにはUIと、DB永続化に依存する
+_build_advisor_context() のみを残す。
 """
 
 import logging
@@ -9,28 +14,8 @@ import streamlit as st
 from favorites import (
     add_favorite, remove_favorite_by_item, is_favorited,
 )
-from utils import HALLUCINATION_GUARD, sanitize_user_input, call_ollama_with_text_retry
-
-
-_ADVISOR_SYSTEM = """あなたは経験豊富な日本の就職活動エージェント兼キャリアアドバイザーです。
-学生の就活を包括的にサポートします。
-
-【あなたのスタンス】
-・学生のデータ（インタビュー・自己PR・性格診断・模擬面接評価）を最大限に活用し、
-  その学生に合った具体的・個別的なアドバイスを提供してください。
-・「一般論」や「誰にでも言えること」は避け、学生のエピソード・強み・課題を踏まえた
-  パーソナライズされた回答をしてください。
-・ガクチカ相談・ES添削・面接不安・業界研究・企業比較・将来の働き方など、
-  就活に関することであれば何でも答えてください。
-・ES文章の添削を求められたら、具体的に文章を書き直して見せてください。
-・数字や根拠を使って、論理的かつ温かみのあるトーンで話してください。
-・敬体（です・ます調）を使い、親しみやすく、でも的確なアドバイスを心がけてください。
-・就活と関係のない話題（料理・ゲーム等）には「就活関連のご相談を専門としています」と
-  丁丁寧にお断りし、就活の話題に引き戻してください。
-{hallucination_guard}
-【学生の情報】
-{context}
-"""
+from career_advisor import generate_career_advice
+from utils import sanitize_user_input
 
 
 def _build_advisor_context() -> str:
@@ -162,27 +147,12 @@ def render(model_name: str):
 
     if st.session_state.ca_is_thinking:
         with st.spinner("考え中..."):
-            system_prompt = _ADVISOR_SYSTEM.format(
-                hallucination_guard=HALLUCINATION_GUARD,
-                context=sanitize_user_input(context_text, max_length=8000) if context_text else "（まだデータがありません）"
-            )
-            # 会話履歴をシステムプロンプトに続けて結合したプロンプトを作る。
-            # call_ollama_with_text_retry はシングルターン（単一プロンプト）前提のため、
-            # システムプロンプト + 全会話履歴 + 新規質問を1テキストにまとめて渡す。
-            history_text = "\n".join(
-                f"{'アドバイザー' if m['role'] == 'assistant' else 'ユーザー'}: {m['content']}"
-                for m in st.session_state.ca_messages[-20:]
-            )
-            full_prompt = f"{system_prompt}\n\n【会話履歴】\n{history_text}"
-
-            result = call_ollama_with_text_retry(
+            result = generate_career_advice(
                 model=model_name,
-                prompt=full_prompt,
-                fallback="⚠️ 応答の生成に失敗しました。しばらく待ってから再度お試しください。",
-                min_length=10,
-                max_retries=1,
+                context_text=context_text,
+                history_messages=st.session_state.ca_messages[-20:],
             )
-            reply = result["text"]
+            reply = result["reply"]
             if not result["ok"]:
                 # リトライ後も失敗した場合はエラー詳細をログに残す
                 logging.getLogger(__name__).warning("キャリアアドバイザー応答失敗: %s", result["error_msg"])

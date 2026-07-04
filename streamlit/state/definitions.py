@@ -59,6 +59,9 @@ STATE_DEFAULTS: dict[str, object] = {
     "company_pr_error": None,
 
     # ── 性格診断用 ──────────────────────────────────────────────────
+    # [2026-07 React移行] UI(page_modules/personality_page.py)はReact版
+    # （/personality）に移行済みのため削除。pa_* はセッション保存・エクスポート
+    # /インポート（session_io/）が引き続き参照するため、データ層としてのみ残す。
     "pa_answers": {},           # dict[int, int]
     "pa_current_q": 0,
     "pa_result": None,
@@ -94,10 +97,16 @@ STATE_DEFAULTS: dict[str, object] = {
     "pq_error": None,
 
     # ── AIキャリアアドバイザー用 ─────────────────────────────────────
+    # [2026-07 React移行] UI(page_modules/career_page.py)はReact版
+    # （/career-advisor）に移行済みのため削除。favorites.py のお気に入り
+    # スナップショット生成が参照するため未使用のまま残置（実質不使用）。
     "ca_messages": [],          # list[dict]
     "ca_is_thinking": False,
 
     # ── 企業比較マトリクス用 ─────────────────────────────────────────
+    # [2026-07 React移行] UI(page_modules/company_matrix_page.py)はReact版
+    # （/company-matrix）に移行済みのため削除。favorites.py のお気に入り
+    # スナップショット生成が参照するため未使用のまま残置（実質不使用）。
     "cm_selected_kb_ids": [],   # list[int]
     "cm_additional_axes": [],   # list[str]
     "cm_motivations": None,

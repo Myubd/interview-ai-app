@@ -13,8 +13,8 @@
 graph TD
     subgraph このリポジトリ
         A[interview_app/]
-        A --> B[streamlit/<br/>全機能版・現メイン]
-        A --> C[react-fastapi/<br/>移植中]
+        A --> B[streamlit/<br/>旧UI・一部機能]
+        A --> C[react-fastapi/<br/>新UI・全機能・現メイン]
         A --> D[shared/<br/>共通ロジック]
         B -.シンボリックリンク.-> D
         C -.シンボリックリンク.-> D
@@ -23,8 +23,8 @@ graph TD
 
 | フォルダ | 説明 |
 |---------|------|
-| [`streamlit/`](./streamlit/) | Streamlit 版（全機能）← **現在のメイン**。バージョンは [`streamlit/version.txt`](./streamlit/version.txt) で管理 |
-| [`react-fastapi/`](./react-fastapi/) | React + FastAPI 版（移植中。下表の🔜は今後対応予定） |
+| [`react-fastapi/`](./react-fastapi/) | React + FastAPI 版 ← **現在のメイン**（全機能を提供） |
+| [`streamlit/`](./streamlit/) | Streamlit 版（旧UI）。バージョンは [`streamlit/version.txt`](./streamlit/version.txt) で管理。React版への移行が完了した機能は削除済み（[機能対応表](#機能対応表)参照） |
 | [`shared/`](./shared/) | 両版が共有するエンジン・DB・プロンプト |
 
 <details>
@@ -57,11 +57,13 @@ graph TD
 | ダッシュボード（スコア集計） | ✅ | ✅ |
 | ナレッジベース管理（RAG） | ✅ | ✅ |
 | 設定 | ✅ | ✅ |
-| 動的インタビュー・自己PR生成 | ✅ | 🔜 |
-| 企業比較マトリクス | ✅ | 🔜 |
-| 性格診断（Big Five） | ✅ | 🔜 |
-| AIキャリアアドバイザー | ✅ | 🔜 |
-| 想定質問生成 | ✅ | 🔜 |
+| 動的インタビュー・自己PR生成 | ✅ | ✅ |
+| 想定質問生成 | ✅ | ✅ |
+| 性格診断（Big Five） | ー（移行済み） | ✅ |
+| 企業比較マトリクス | ー（移行済み） | ✅ |
+| AIキャリアアドバイザー | ー（移行済み） | ✅ |
+
+> 全機能の React+FastAPI 版への移行が完了しました。性格診断・企業比較マトリクス・AIキャリアアドバイザーは Streamlit 版から機能を削除済みです（詳細は [`shared/MIGRATION_GUIDE.md`](./shared/MIGRATION_GUIDE.md)）。
 
 ---
 
