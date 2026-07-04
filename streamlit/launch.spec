@@ -23,10 +23,10 @@ a = Analysis(
         ('updater.py', '.'),
         ('app.py', '.'),
         ('favorites.py', '.'),
-        ('personality_assessment.py', '.'),
-        ('company_matrix.py', '.'),
         # shared/ に一本化されたモジュール（streamlit/ 直下には物理コピーが無いため
         # ../shared/ から直接取り込む。詳細は shared/MIGRATION_GUIDE.md 参照）
+        ('../shared/personality_assessment.py', '.'),
+        ('../shared/company_matrix.py', '.'),
         ('../shared/interview_engine.py', '.'),
         ('../shared/pr_generation.py', '.'),
         ('../shared/summary_generation.py', '.'),
