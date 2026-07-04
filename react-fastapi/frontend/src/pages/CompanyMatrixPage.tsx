@@ -308,7 +308,7 @@ const MatrixTab: React.FC<{
             <div key={ax}>
               <p className="text-sm font-semibold text-slate-800 mb-2">
                 {ax}
-                {ax === valueFitAxisKey && <span className="text-[11px] text-slate-400 font-normal">　{valueFitNote}</span>}
+                {ax === valueFitAxisKey && <span className="text-[11px] text-slate-400 font-normal"> {valueFitNote}</span>}
               </p>
               <div className="grid gap-2" style={{ gridTemplateColumns: `repeat(${result.companies.length}, minmax(0, 1fr))` }}>
                 {result.companies.map(company => {

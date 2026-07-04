@@ -104,7 +104,7 @@ export const CareerAdvisorPage: React.FC = () => {
             <option value="">参照しない（一般的な相談として話す）</option>
             {sessions.map(s => (
               <option key={s.id} value={s.id}>
-                {(s.company_name || '（企業名未設定）')}　{s.session_type ?? ''}　- {new Date(s.created_at).toLocaleString('ja-JP')}
+                {(s.company_name || '（企業名未設定）')} {s.session_type ?? ''} - {new Date(s.created_at).toLocaleString('ja-JP')}
               </option>
             ))}
           </select>
