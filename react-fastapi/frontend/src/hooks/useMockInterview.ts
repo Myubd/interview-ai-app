@@ -94,25 +94,25 @@ function isAbortError(err: unknown): boolean {
   return err instanceof DOMException && err.name === 'AbortError'
 }
 
+const INITIAL: MockInterviewState = {
+  status: 'idle',
+  messages: [],
+  themeIndex: 0,
+  themeTitle: '',
+  followupsAsked: 0,
+  industryKey: 'general',
+  personaKey: 'standard',
+  profileText: '',
+  evaluation: null,
+  error: null,
+  errorHint: null,
+  lastAnswer: null,
+  canRetry: false,
+  sessionId: null,
+}
+
 // ── フック本体 ─────────────────────────────────────────────────
 export function useMockInterview() {
-  const INITIAL: MockInterviewState = {
-    status: 'idle',
-    messages: [],
-    themeIndex: 0,
-    themeTitle: '',
-    followupsAsked: 0,
-    industryKey: 'general',
-    personaKey: 'standard',
-    profileText: '',
-    evaluation: null,
-    error: null,
-    errorHint: null,
-    lastAnswer: null,
-    canRetry: false,
-    sessionId: null,
-  }
-
   const [state, setState] = useState<MockInterviewState>(INITIAL)
   const stateRef = useRef<MockInterviewState>(INITIAL)
   // setState をラップして ref を常に最新に保つ
@@ -190,6 +190,41 @@ export function useMockInterview() {
   // ── 回答送信の実処理（SSE）─────────────────────────────────
   // messagesForRequest にはすでに送信対象の回答が含まれている前提。
   // retry の場合は同じ回答を重複追加せずにこの関数を呼び直す。
+  const applyEvent = useCallback((eventType: string, data: Record<string, unknown>) => {
+    switch (eventType) {
+      case 'question':
+        setStateSync(s => ({
+          ...s,
+          status: 'in_progress',
+          messages: [...s.messages, { role: 'assistant', content: data['text'] as string }],
+          followupsAsked: data['is_followup'] ? s.followupsAsked + 1 : 0,
+        }))
+        break
+      case 'transition':
+        setStateSync(s => ({
+          ...s,
+          themeIndex: data['theme_index'] as number,
+          themeTitle: data['theme_title'] as string,
+          followupsAsked: 0,
+        }))
+        break
+      case 'finished':
+        setStateSync(s => ({ ...s, status: 'finished' }))
+        break
+      case 'error': {
+        const friendly = toFriendlyError(new Error(String(data['message'] ?? '')))
+        setStateSync(s => ({
+          ...s,
+          status: 'error',
+          error: (data['message'] as string) || friendly.message,
+          errorHint: friendly.hint ?? null,
+          canRetry: true,
+        }))
+        break
+      }
+    }
+  }, [setStateSync])
+
   const performSend = useCallback(async (answer: string, messagesForRequest: Message[]) => {
     const cur = stateRef.current
     setStateSync(s => ({ ...s, status: 'waiting', lastAnswer: answer, error: null, errorHint: null }))
@@ -254,9 +289,7 @@ export function useMockInterview() {
         }))
       }
     }
-  }, [setStateSync])
-
-  // ── 回答送信（ユーザー操作から呼ばれる）─────────────────────
+  }, [setStateSync, applyEvent])
   const sendAnswer = useCallback(async (answer: string) => {
     const cur = stateRef.current
     const updatedMessages: Message[] = [
@@ -274,41 +307,6 @@ export function useMockInterview() {
     // messages にはすでにユーザーの回答が含まれているので、そのまま使う
     await performSend(cur.lastAnswer, cur.messages)
   }, [performSend])
-
-  function applyEvent(eventType: string, data: Record<string, unknown>) {
-    switch (eventType) {
-      case 'question':
-        setStateSync(s => ({
-          ...s,
-          status: 'in_progress',
-          messages: [...s.messages, { role: 'assistant', content: data['text'] as string }],
-          followupsAsked: data['is_followup'] ? s.followupsAsked + 1 : 0,
-        }))
-        break
-      case 'transition':
-        setStateSync(s => ({
-          ...s,
-          themeIndex: data['theme_index'] as number,
-          themeTitle: data['theme_title'] as string,
-          followupsAsked: 0,
-        }))
-        break
-      case 'finished':
-        setStateSync(s => ({ ...s, status: 'finished' }))
-        break
-      case 'error': {
-        const friendly = toFriendlyError(new Error(String(data['message'] ?? '')))
-        setStateSync(s => ({
-          ...s,
-          status: 'error',
-          error: (data['message'] as string) || friendly.message,
-          errorHint: friendly.hint ?? null,
-          canRetry: true,
-        }))
-        break
-      }
-    }
-  }
 
   // ── 終了後評価 ──────────────────────────────────────────────
   const evaluate = useCallback(async () => {

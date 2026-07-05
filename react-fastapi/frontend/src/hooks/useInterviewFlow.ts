@@ -45,21 +45,21 @@ export interface InterviewFlowState {
   errorHint: string | null
 }
 
-export function useInterviewFlow() {
-  const INITIAL: InterviewFlowState = {
-    status: 'idle',
-    messages: [],
-    themeMessages: [],
-    themeIndex: 0,
-    themeTitle: '',
-    questionsAskedInTheme: 0,
-    categoryOptions: [],
-    profileText: '',
-    sessionId: null,
-    error: null,
-    errorHint: null,
-  }
+const INITIAL: InterviewFlowState = {
+  status: 'idle',
+  messages: [],
+  themeMessages: [],
+  themeIndex: 0,
+  themeTitle: '',
+  questionsAskedInTheme: 0,
+  categoryOptions: [],
+  profileText: '',
+  sessionId: null,
+  error: null,
+  errorHint: null,
+}
 
+export function useInterviewFlow() {
   const [state, setState] = useState<InterviewFlowState>(INITIAL)
   const stateRef = useRef<InterviewFlowState>(INITIAL)
   const setStateSync = useCallback((updater: (s: InterviewFlowState) => InterviewFlowState) => {
