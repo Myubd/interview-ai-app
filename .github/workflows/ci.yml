@@ -131,6 +131,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-cov httpx
+          pip install -e local_ai_core
 
       - name: Run unit and API tests with coverage
         working-directory: react-fastapi/backend
@@ -174,6 +175,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install -e local_ai_core
           pip install pyinstaller==6.21.0
 
       - name: Test PyInstaller build (dry run)
