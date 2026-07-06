@@ -47,6 +47,50 @@ if "ollama" not in sys.modules:
     _mock_ollama.embeddings = MagicMock(return_value={"embedding": [0.1] * 768})
     sys.modules["ollama"] = _mock_ollama
 
+# ── local_ai_core 経由の呼び出しをモックする ──────────────────
+#    [追加] llm/ollama_client.py と llm/ollama_provider.py が local_ai_core の
+#    httpx 実装に置き換わったことで、上の ollama パッケージのモックだけでは
+#    テストがオフラインにならなくなった（httpx は sys.modules["ollama"] を
+#    経由しないため）。実際のOllamaサーバーに接続しに行ってしまい、
+#    モデル未pull等の環境差でテストが不安定になるのを防ぐため、
+#    local_ai_core.llm.ollama_provider.OllamaProvider の同期/非同期メソッドを
+#    直接モックする。
+from local_ai_core.llm.base import ChatResponse as _ChatResponse
+from local_ai_core.llm.ollama_provider import OllamaProvider as _CoreOllamaProvider
+
+
+def _mock_chat_sync(self, messages, model=None, temperature=0.7, max_tokens=None, format=None):
+    content = "{}" if format == "json" else "モックされたAI応答です。"
+    return _ChatResponse(content=content, model=model or self.model, provider="local")
+
+
+async def _mock_chat(self, messages, model=None, temperature=0.7, max_tokens=None, format=None):
+    return _mock_chat_sync(self, messages, model=model, temperature=temperature, max_tokens=max_tokens, format=format)
+
+
+def _mock_embed_sync(self, texts, model=None):
+    return [[0.1] * 768 for _ in texts]
+
+
+async def _mock_embed(self, texts, model=None):
+    return _mock_embed_sync(self, texts, model=model)
+
+
+def _mock_list_models(self):
+    return ["qwen3:8b", "nomic-embed-text"]
+
+
+def _mock_is_running(self):
+    return True
+
+
+_CoreOllamaProvider.chat_sync = _mock_chat_sync
+_CoreOllamaProvider.chat = _mock_chat
+_CoreOllamaProvider.embed_sync = _mock_embed_sync
+_CoreOllamaProvider.embed = _mock_embed
+_CoreOllamaProvider.list_models = _mock_list_models
+_CoreOllamaProvider.is_running = _mock_is_running
+
 
 # ── 一時 DB フィクスチャ ────────────────────────────────────
 
