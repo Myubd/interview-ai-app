@@ -1,0 +1,3 @@
+[submodule "react-fastapi/backend/local_ai_core"]
+	path = react-fastapi/backend/local_ai_core
+	url = https://github.com/Myubd/local-ai-core.git
