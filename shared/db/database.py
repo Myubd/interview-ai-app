@@ -60,6 +60,21 @@ def _resolve_db_path() -> str:
     return str(base / "career_support.db")
 
 
+def get_core_db_path() -> str:
+    """local-ai-core の共通スキーマ(core.db)を、career_support.db と同じディレクトリに置く。
+    core_sync/ 配下のモジュールから参照する。
+    """
+    env_path = os.environ.get("CORE_DB_PATH", "")
+    if env_path:
+        return env_path
+    if getattr(sys, "frozen", False):
+        appdata = os.environ.get("APPDATA") or str(Path.home())
+        base = Path(appdata) / "InterviewApp" / "db"
+    else:
+        base = _DB_DIR
+    return str(base / "core.db")
+
+
 SCHEMA_SQL = """
 PRAGMA foreign_keys = ON;
 
@@ -246,8 +261,9 @@ def db_session(db_path: str | None = None) -> Iterator[sqlite3.Connection]:
 
 _MIGRATIONS: list[tuple[int, str]] = [
     (1, "ALTER TABLE sessions ADD COLUMN mock_interview_evaluation TEXT"),
+    (2, "ALTER TABLE sessions ADD COLUMN scheduled_at TEXT"),  # 面接予定日時(ISO8601)。core_sync経由でschedule_itemsに反映
     # 今後のカラム追加はここに追記:
-    # (2, "ALTER TABLE sessions ADD COLUMN new_column TEXT"),
+    # (3, "ALTER TABLE sessions ADD COLUMN new_column TEXT"),
 ]
 
 _CREATE_MIGRATION_TABLE = """

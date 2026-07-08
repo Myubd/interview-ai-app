@@ -40,6 +40,7 @@ SESSION_DIRECT_KEYS: list[str] = [
     "final_pr",
     "selected_variant_index",
     "interview_summary",
+    "scheduled_at",
 ]
 
 # sessions テーブルの列だが、JSON文字列として保存する必要があるキー
@@ -125,8 +126,8 @@ def save_session(
                     profile_text, interview_complete, final_pr,
                     selected_variant_index, interview_summary,
                     pr_variants, predicted_questions, company_prs,
-                    progress_state, mock_interview_evaluation
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    progress_state, mock_interview_evaluation, scheduled_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     None if company_name is _UNSET else company_name,
@@ -142,6 +143,7 @@ def save_session(
                     json_str_values.get("company_prs"),
                     progress_state_json,
                     mock_evaluation_json,
+                    direct_values.get("scheduled_at"),
                 ),
             )
             session_id = cur.lastrowid
@@ -159,6 +161,7 @@ def save_session(
                 "company_prs = ?",
                 "progress_state = ?",
                 "mock_interview_evaluation = ?",
+                "scheduled_at = ?",
                 "updated_at = datetime('now', 'localtime')",
             ]
             params: list[Any] = [
@@ -172,6 +175,7 @@ def save_session(
                 json_str_values.get("company_prs"),
                 progress_state_json,
                 mock_evaluation_json,
+                direct_values.get("scheduled_at"),
             ]
             if company_name is not _UNSET:
                 set_clauses.append("company_name = ?")
@@ -205,7 +209,40 @@ def save_session(
                 (session_id, role, content, theme_index),
             )
 
+    _sync_session_to_core(session_id)
     return session_id
+
+
+def _sync_session_to_core(session_id: int) -> None:
+    """保存直後のセッションを読み直し、他アプリと共有してよい要約だけを
+    local-ai-core(core.db)へ反映する。失敗してもセッション保存自体は
+    既に完了しているため、ここでは例外を握りつぶして無視する。
+    """
+    try:
+        from core_sync.es_sync import sync_es_status
+        from core_sync.schedule_sync import sync_interview_schedule
+    except ImportError:  # pragma: no cover - core_sync未導入環境でも本体機能は動くようにする
+        return
+
+    record = get_session(session_id)
+    if record is None:
+        return
+    row = record["session"]
+
+    try:
+        sync_es_status(
+            session_id=session_id,
+            company_name=row.get("company_name"),
+            final_pr=row.get("final_pr"),
+            pr_variants=row.get("pr_variants"),
+        )
+        sync_interview_schedule(
+            session_id=session_id,
+            company_name=row.get("company_name"),
+            scheduled_at=row.get("scheduled_at"),
+        )
+    except Exception:  # pragma: no cover - 共通台帳同期の失敗で本体機能を止めない
+        pass
 
 
 def list_sessions() -> list[dict]:
