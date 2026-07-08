@@ -37,6 +37,44 @@ export interface VersionResponse {
   version: string
 }
 
+/** データ共有の許可(まだ許可していないリクエスト) */
+export interface PendingScope {
+  app_key: string
+  scope: string
+  purpose: string
+}
+
+/** データ共有の許可(現在許可しているもの) */
+export interface GrantedScope {
+  app_key: string
+  scope: string
+  purpose: string
+  granted_at: string
+  expires_at: string | null
+}
+
+export async function apiGetPendingPermissions(): Promise<PendingScope[]> {
+  return request<PendingScope[]>('/permissions/pending')
+}
+
+export async function apiGetGrantedPermissions(): Promise<GrantedScope[]> {
+  return request<GrantedScope[]>('/permissions/granted')
+}
+
+export async function apiGrantPermission(appKey: string, scope: string): Promise<void> {
+  await request<void>('/permissions/grant', {
+    method: 'POST',
+    body: JSON.stringify({ app_key: appKey, scope }),
+  })
+}
+
+export async function apiRevokePermission(appKey: string, scope: string): Promise<void> {
+  await request<void>('/permissions/revoke', {
+    method: 'POST',
+    body: JSON.stringify({ app_key: appKey, scope }),
+  })
+}
+
 export interface SetupStatus {
   done: boolean
   error: boolean

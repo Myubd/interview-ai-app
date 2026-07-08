@@ -26,6 +26,11 @@ import numpy as np
 
 from db.database import db_session
 
+try:
+    from core_sync.knowledge_sync import sync_company_knowledge_base
+except ImportError:  # pragma: no cover - core_sync未導入環境でも本体機能は動くようにする
+    sync_company_knowledge_base = None  # type: ignore[assignment]
+
 # このファイル（db/knowledge_base_repository.py）から見て1階層上（プロジェクトルート）を指す
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RAG_DATA_DIR = PROJECT_ROOT / "rag_data"
@@ -52,13 +57,23 @@ def get_or_create_knowledge_base(name: str, kb_type: str) -> int:
             (name, kb_type),
         ).fetchone()
         if row is not None:
-            return row["id"]
+            kb_id = row["id"]
+        else:
+            cur = conn.execute(
+                "INSERT INTO knowledge_bases (name, kb_type) VALUES (?, ?)",
+                (name, kb_type),
+            )
+            kb_id = cur.lastrowid
 
-        cur = conn.execute(
-            "INSERT INTO knowledge_bases (name, kb_type) VALUES (?, ?)",
-            (name, kb_type),
-        )
-        return cur.lastrowid
+    # 企業研究ノートは、他アプリからも参照できるよう共通台帳(knowledge_items)にも
+    # 要約を反映する。ユーザーが許可していなければ core_sync 側で静かにスキップされる。
+    if kb_type == "company" and sync_company_knowledge_base is not None:
+        try:
+            sync_company_knowledge_base(kb_id, name)
+        except Exception:  # pragma: no cover - 共通台帳同期の失敗で本体機能を止めない
+            pass
+
+    return kb_id
 
 
 def list_knowledge_bases(kb_type: str | None = None) -> list[dict]:
