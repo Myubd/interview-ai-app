@@ -772,6 +772,12 @@ def main() -> None:
     os.environ.setdefault("INTERVIEW_STATIC_DIR", os.path.join(base, "frontend_dist"))
     os.environ.setdefault("PYTHONPATH", base)
     os.environ.setdefault("INTERVIEW_DB_PATH", _resolve_db_path())
+    # setup_progress.py が「本当にlaunch_fastapi.py経由で起動されたか」を
+    # 判定するためのフラグ。`uvicorn main:app` を直接起動した開発時は
+    # このモジュール自体はimportできてしまうが、_ensure_ollama() が
+    # 一切実行されず setup_done が永遠にセットされないため、
+    # フロントエンドのセットアップ画面が終わらなくなる事故を防ぐ。
+    os.environ["LAUNCH_FASTAPI_ORCHESTRATED"] = "1"
 
     _log("FastAPI サーバーを起動中...", "INFO")
     _log("=" * 60, "INFO")

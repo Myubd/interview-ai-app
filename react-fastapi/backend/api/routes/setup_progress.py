@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import queue
 
 from fastapi import APIRouter
@@ -22,7 +23,14 @@ from pydantic import BaseModel
 
 # launch_fastapi が注入するグローバルオブジェクトをインポート
 # （開発時に直接 uvicorn で起動する場合は空のダミーを使う）
+#
+# 注意: launch_fastapi.py はただ import しただけでは _ensure_ollama() が
+# 実行されず、setup_done が永遠にセットされない。実際に launch_fastapi.py
+# 経由で起動された場合にだけ LAUNCH_FASTAPI_ORCHESTRATED 環境変数が
+# セットされるので、それを見て本当にオーケストレーションされているかを判定する。
 try:
+    if os.environ.get("LAUNCH_FASTAPI_ORCHESTRATED") != "1":
+        raise ImportError("launch_fastapi module present but not orchestrating this process")
     import launch_fastapi as _launcher
     _progress_queue: queue.Queue = _launcher.setup_progress_queue
     _done_event = _launcher.setup_done
@@ -32,7 +40,7 @@ except ImportError:
     _progress_queue = queue.Queue()
     _done_event = threading.Event()
     _error_event = threading.Event()
-    _done_event.set()   # 開発時はセットアップ済み扱い
+    _done_event.set()   # 開発時（uvicorn直接起動）はセットアップ済み扱い
 
 router = APIRouter()
 
