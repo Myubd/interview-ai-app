@@ -53,3 +53,5 @@ react-fastapi/backend/uploads/
 
 # ---- 配布・共有用に作った圧縮ファイル ----
 *.zip
+react-fastapi/backend/.coverage 
+react-fastapi/backend/.coverage 
