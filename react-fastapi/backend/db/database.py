@@ -63,15 +63,31 @@ def _resolve_db_path() -> str:
 def get_core_db_path() -> str:
     """local-ai-core の共通スキーマ(core.db)のパス。
 
-    以前はここで「career_support.dbと同じディレクトリ」を独自に組み立てていたが、
-    それだとArchlifeなど他アプリが別のディレクトリを見てしまい、
-    core.dbがアプリごとに分裂する(=共通データ基盤にならない)問題があった。
-    そのため、パス解決は local_ai_core.paths に一本化し、ここでは委譲するだけにする。
-    旧環境変数 CORE_DB_PATH は local_ai_core.paths 側で後方互換として読まれる。
-    """
-    from local_ai_core.paths import get_core_db_path as _shared_get_core_db_path
+    全アプリ(Archlife, interview_app react-fastapi版, interview_app streamlit版)が
+    同じ core.db を指すよう、パス解決ルールをここで固定している。
 
-    return _shared_get_core_db_path()
+    NOTE: このファイルは shared/check_sync.py により shared/・streamlit/・
+    react-fastapi/backend/ の3箇所で内容が完全一致している必要がある。
+    streamlit/ 側には local_ai_core パッケージ(サブモジュール)が存在しないため、
+    `import local_ai_core` はせず、local_ai_core/paths.py と同じ解決ロジックを
+    ここに直接複製している。ロジックを変更する場合は、
+    local_ai_core/paths.py 側の実装もあわせて更新すること。
+    """
+    env_path = os.environ.get("LOCAL_AI_CORE_DB_PATH", "") or os.environ.get("CORE_DB_PATH", "")
+    if env_path:
+        return env_path
+
+    if sys.platform == "win32":
+        base_root = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or str(Path.home())
+        base = Path(base_root) / "ArchLifeEcosystem"
+    elif sys.platform == "darwin":
+        base = Path.home() / "Library" / "Application Support" / "ArchLifeEcosystem"
+    else:
+        xdg = os.environ.get("XDG_DATA_HOME")
+        base = (Path(xdg) if xdg else Path.home() / ".local" / "share") / "archlife-ecosystem"
+
+    base.mkdir(parents=True, exist_ok=True)
+    return str(base / "core.db")
 
 
 SCHEMA_SQL = """
