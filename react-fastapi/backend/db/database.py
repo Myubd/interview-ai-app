@@ -61,18 +61,17 @@ def _resolve_db_path() -> str:
 
 
 def get_core_db_path() -> str:
-    """local-ai-core の共通スキーマ(core.db)を、career_support.db と同じディレクトリに置く。
-    core_sync/ 配下のモジュールから参照する。
+    """local-ai-core の共通スキーマ(core.db)のパス。
+
+    以前はここで「career_support.dbと同じディレクトリ」を独自に組み立てていたが、
+    それだとArchlifeなど他アプリが別のディレクトリを見てしまい、
+    core.dbがアプリごとに分裂する(=共通データ基盤にならない)問題があった。
+    そのため、パス解決は local_ai_core.paths に一本化し、ここでは委譲するだけにする。
+    旧環境変数 CORE_DB_PATH は local_ai_core.paths 側で後方互換として読まれる。
     """
-    env_path = os.environ.get("CORE_DB_PATH", "")
-    if env_path:
-        return env_path
-    if getattr(sys, "frozen", False):
-        appdata = os.environ.get("APPDATA") or str(Path.home())
-        base = Path(appdata) / "InterviewApp" / "db"
-    else:
-        base = _DB_DIR
-    return str(base / "core.db")
+    from local_ai_core.paths import get_core_db_path as _shared_get_core_db_path
+
+    return _shared_get_core_db_path()
 
 
 SCHEMA_SQL = """
