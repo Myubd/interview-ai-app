@@ -25,7 +25,14 @@ from db.session_repository import get_session, list_sessions
 from db.personality_repository import get_personality_result
 from db.settings_repository import get_setting
 
+from local_ai_core.memory import MemoryStore, format_items_for_prompt
+from local_ai_core.permissions import PermissionDenied
+
+from db.database import get_core_db_path
+from core_sync import get_gate, get_profile_id
+
 DEFAULT_CHAT_MODEL = "qwen3:8b"
+APP_KEY = "interview_app"
 
 
 def _model() -> str:
@@ -119,6 +126,23 @@ def _build_context_sync(session_id: int) -> str:
     return "\n\n".join(parts)
 
 
+def _build_memory_context_sync() -> str:
+    """local-ai-core の AIメモリー(career.* 配下)を読み出し、プロンプト用に整形する。
+
+    「AIが全部知っている」を避ける方針に沿い、ユーザーが memory:read:career.* を
+    許可していない場合は PermissionDenied となるが、ここでは黙って空文字を返す
+    (このアプリ本来のチャット機能自体はメモリーが読めなくても成立するため、
+    権限未許可がチャット機能全体の失敗にならないようにする)。
+    """
+    gate = get_gate()
+    mem = MemoryStore(get_core_db_path(), gate=gate)
+    try:
+        items = mem.list_by_prefix(get_profile_id(), APP_KEY, "career")
+    except PermissionDenied:
+        return ""
+    return format_items_for_prompt(items)
+
+
 class CareerAdvisorService:
 
     @staticmethod
@@ -139,16 +163,27 @@ class CareerAdvisorService:
         except Exception:
             return ""
 
+    @staticmethod
+    async def build_memory_context() -> str:
+        """AIメモリー(career.*)を権限ゲート経由で読み出す。未許可なら空文字。"""
+        return await _run(_build_memory_context_sync)
+
     @classmethod
     async def chat(
         cls,
         messages: list[dict],
         session_id: int | None = None,
     ) -> dict:
-        """会話履歴（最後がユーザー発言）から、キャリアアドバイザーの返信を生成する。"""
+        """会話履歴（最後がユーザー発言）から、キャリアアドバイザーの返信を生成する。
+
+        セッションから組み立てるコンテキストに加え、local-ai-coreのAIメモリーに
+        蓄積された career.* 配下の情報（過去の自己分析結果など、他セッションや
+        他アプリ由来のものも含む）を、権限が許可されている範囲で読み込んで反映する。
+        """
         context_text = await cls.build_context(session_id)
+        memory_context = await cls.build_memory_context()
         model = await _run(_model)
-        return await _run(generate_career_advice, model, context_text, messages)
+        return await _run(generate_career_advice, model, context_text, messages, memory_context)
 
 
 __all__ = ["CareerAdvisorService"]
