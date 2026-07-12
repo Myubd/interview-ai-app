@@ -97,7 +97,11 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False,
+    console=True,
+    # NOTE: console=False ではなく True にしている理由は
+    # launch_fastapi.py の _hide_console_window() のコメントを参照。
+    # コンソールウィンドウ自体は起動直後にプログラム側で隠すため、
+    # 見た目上は console=False と同じ(ウィンドウが出ない)体験になる。
     icon=os.path.join(SPECPATH, 'app.ico'),
 )
 

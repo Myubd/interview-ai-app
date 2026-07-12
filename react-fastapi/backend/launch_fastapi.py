@@ -692,6 +692,43 @@ def _ensure_ollama() -> None:
 # メイン
 # ============================================================
 
+def _hide_console_window() -> None:
+    """コンソールウィンドウを非表示にする。
+
+    【背景】 本来 console=False でビルドしたかったが、実際に配布して
+    テストしたところ、console=False のブートローダーだけが特定の
+    Windows環境で原因不明のまま即座に無音termination される事象が
+    発生した(Windowsのアプリケーションログにも、Windows Defenderの
+    ログにも一切記録が残らない、通常のクラッシュとは異なる挙動)。
+    console=True のブートローダーは同じ環境で確実に起動することを
+    確認済みなので、見た目の挙動(コンソールウィンドウを出さない)だけを
+    ここで実現する。
+
+    ダブルクリックやインストーラーのショートカット経由で起動された
+    場合は、このプロセス専用の新しいコンソールが割り当てられるため、
+    それだけを隠す。一方、開発時のように既存の cmd から
+    `launch_fastapi.exe` を直接実行した場合は、その cmd 自身の
+    コンソールを共有しているため、ここで隠すとユーザーの cmd
+    ウィンドウごと消えてしまう。GetConsoleProcessList で「このコンソールに
+    アタッチしているプロセス数」を調べ、自分1つだけの場合(=専用の
+    新規コンソール)のみ隠す。
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+
+        kernel32 = ctypes.windll.kernel32
+        pids = (ctypes.c_uint * 4)()
+        count = kernel32.GetConsoleProcessList(pids, 4)
+        if count <= 1:
+            hwnd = kernel32.GetConsoleWindow()
+            if hwnd:
+                ctypes.windll.user32.ShowWindow(hwnd, 0)  # SW_HIDE
+    except Exception:
+        pass  # 失敗しても動作に影響なし(最悪コンソールが見えるだけ)
+
+
 def _fix_stdio() -> None:
     """PyInstaller 環境で stdout/stderr が None になる場合の対策。"""
     if sys.stdout is None:
@@ -778,6 +815,7 @@ def _wait_for_port(port: int, timeout: float = 30.0) -> bool:
 
 
 def main() -> None:
+    _hide_console_window()
     _fix_stdio()
     _suppress_child_console()
 
