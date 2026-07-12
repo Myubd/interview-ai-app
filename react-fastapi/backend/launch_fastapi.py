@@ -728,6 +728,35 @@ def _suppress_child_console() -> None:
         pass  # 失敗しても動作に影響なし
 
 
+def _crash_log_path() -> str:
+    """クラッシュログの保存先。DBと同じ %APPDATA%\\InterviewApp\\ に置く。"""
+    app_data = os.environ.get("APPDATA") or os.path.expanduser("~")
+    log_dir = os.path.join(app_data, "InterviewApp")
+    os.makedirs(log_dir, exist_ok=True)
+    return os.path.join(log_dir, "crash.log")
+
+
+def _write_crash_log(context: str, exc: BaseException) -> None:
+    """例外の詳細(トレースバック込み)をファイルに書き出す。
+
+    console=False ビルドでは標準出力・標準エラーが NUL に捨てられており
+    (_fix_stdio 参照)、cmd から実行してもエラーが一切見えない。
+    起動時の問題を調査できるよう、必ずファイルに残す。
+    """
+    import traceback
+
+    path = _crash_log_path()
+    try:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write("=" * 60 + "\n")
+            f.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {context}\n")
+            f.write("=" * 60 + "\n")
+            traceback.print_exception(type(exc), exc, exc.__traceback__, file=f)
+            f.write("\n")
+    except Exception:
+        pass  # ログ書き込み自体に失敗しても、起動処理は続行/終了させる
+
+
 def _resolve_db_path() -> str:
     """DBファイルの保存先をユーザーフォルダに返す。"""
     app_data = os.environ.get("APPDATA") or os.path.expanduser("~")
@@ -788,16 +817,20 @@ def main() -> None:
     # setup_thread を開始する。
     # こうすることで SSEエンドポイントが確実に存在する状態でセットアップログを
     # 配信でき、「起動直後にログが出ない」問題を防ぐ。
-    uvicorn_thread = threading.Thread(
-        target=lambda: uvicorn.run(
-            "main:app",
-            host="127.0.0.1",
-            port=BACKEND_PORT,
-            log_level="warning",
-            loop="asyncio",   # ARM/PyInstaller 環境での子プロセス生成を防ぐ
-        ),
-        daemon=True,
-    )
+    def _run_uvicorn():
+        try:
+            uvicorn.run(
+                "main:app",
+                host="127.0.0.1",
+                port=BACKEND_PORT,
+                log_level="warning",
+                loop="asyncio",   # ARM/PyInstaller 環境での子プロセス生成を防ぐ
+            )
+        except Exception as e:
+            _write_crash_log("uvicorn_thread内で例外が発生しました", e)
+            setup_error.set()
+
+    uvicorn_thread = threading.Thread(target=_run_uvicorn, daemon=True)
     uvicorn_thread.start()
 
     # サーバーが実際にリスニングを開始するまで待つ
@@ -819,4 +852,12 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        try:
+            _fix_stdio()  # まだ呼ばれていない可能性があるので念のため
+        except Exception:
+            pass
+        _write_crash_log("main()内で未処理の例外が発生しました(起動直後に終了)", e)
+        raise
