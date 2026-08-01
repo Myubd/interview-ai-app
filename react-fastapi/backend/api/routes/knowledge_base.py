@@ -29,13 +29,55 @@ from db.knowledge_base_repository import (
     get_or_create_knowledge_base,
     delete_knowledge_base,
     get_knowledge_base,
+    list_document_versions,
 )
 from rag.extraction import extract_text_from_pdf, extract_text_from_image
-from rag.persistence import save_document_to_kb, load_active_documents
+from rag.persistence import save_document_to_kb, load_active_documents, PROJECT_ROOT
 from rag.core import search_balanced, format_context
+
+from local_ai_core.documents import DocumentStore
+from local_ai_core.permissions import PermissionDenied
+from db.database import get_core_db_path
+from core_sync import get_gate, get_profile_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+APP_KEY = "interview_app"
+
+
+def _sync_document_to_center(kb_id: int, document_id: int, name: str, kb_type: str) -> None:
+    """アップロードされたファイルの「所在」を、全アプリ共通のドキュメントセンターに
+    登録する。これまでdocuments:write/readはplugin_manifest.jsonで申告されていた
+    だけで、実際に登録するコードがどこにも存在しなかった
+    (career.*メモリー・life.*メモリーと同種の欠落を、ドキュメントセンターでも
+    ここで初めて塞ぐ)。
+
+    登録するのはファイルの絶対パスとメタデータのみで、ファイルの内容そのものは
+    どこにもコピーしない(ドキュメントセンターの設計方針通り)。実体は
+    このアプリの uploads/ 配下に元々あるものを指すだけ。
+
+    memory:write:career.* 等と同様、documents:write が未許可でもアップロード
+    機能自体は今まで通り使える(PermissionDeniedは静かに無視する)。
+    """
+    try:
+        versions = list_document_versions(kb_id)
+        match = next((v for v in versions if v["id"] == document_id), None)
+        if match is None or not match.get("file_path"):
+            return
+        abs_path = str((PROJECT_ROOT / match["file_path"]).resolve())
+
+        gate = get_gate()
+        docs = DocumentStore(get_core_db_path(), gate=gate)
+        docs.register(
+            get_profile_id(), APP_KEY, abs_path, title=name,
+            source_ref_id=f"kb:{kb_id}:doc:{document_id}",
+            category=kb_type,  # "resume" or "company"
+        )
+    except PermissionDenied:
+        pass
+    except Exception:
+        logger.exception("ドキュメントセンターへの同期に失敗(アップロード自体には影響なし)")
 
 
 # ── ヘルパー: ファイル種別によるテキスト抽出 ─────────────────────
@@ -114,6 +156,8 @@ async def create_from_text(req: KBCreateTextRequest) -> dict:
     if doc is None:
         raise HTTPException(status_code=422, detail="テキストからチャンクを作成できませんでした")
 
+    _sync_document_to_center(kb_id, doc.document_id, req.name, req.kb_type)
+
     kb = get_knowledge_base(kb_id)
     return kb or {"id": kb_id, "name": req.name, "kb_type": req.kb_type}
 
@@ -151,6 +195,8 @@ async def create_from_upload(
     )
     if doc is None:
         raise HTTPException(status_code=422, detail="テキストからチャンクを作成できませんでした")
+
+    _sync_document_to_center(kb_id, doc.document_id, name, kb_type)
 
     kb = get_knowledge_base(kb_id)
     return kb or {"id": kb_id, "name": name, "kb_type": kb_type}

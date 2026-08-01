@@ -33,6 +33,13 @@ from db.session_repository import save_session
 from db.favorites_repository import add_favorite
 from db.settings_repository import get_setting
 
+from local_ai_core.memory import MemoryStore
+from local_ai_core.permissions import PermissionDenied
+from db.database import get_core_db_path
+from core_sync import get_gate, get_profile_id
+
+APP_KEY = "interview_app"
+
 DEFAULT_CHAT_MODEL = "qwen3:8b"
 
 
@@ -43,6 +50,48 @@ def _model() -> str:
 async def _run(fn, *args, **kwargs):
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, lambda: fn(*args, **kwargs))
+
+
+def _sync_personality_to_memory(result: dict) -> None:
+    """性格診断結果のうち、他アプリと共有する価値がある要約だけを
+    local-ai-core の AIメモリー(career.* 配下)へ書き込む。
+
+    これまでこのメモリーへの書き込みは plugin_manifest.json 上の申告
+    (「自己分析・強み弱みの結果を他アプリでも使えるよう保存するため」)は
+    あったものの、実際に書き込むコードが存在していなかった
+    (career_advisor_service.py 側の読み出しコードは既にあったため、
+    「読めるが、書く場所が無い」という空っぽの状態になっていた)。
+
+    書き込むのは診断結果の要約(強み・注意点・向いている環境・面接での
+    アピールポイント)のみ。設問への生回答(pa_answers)は書き込まない
+    (「AIが全部知っている」を避ける方針に沿い、他アプリと共有する価値がある
+    要約情報だけをメモリー化する)。
+
+    confidence は "ai_inferred" とする。ユーザーが直接「私の強みはこれです」と
+    確定入力したものではなく、30問の回答からAIが解釈・生成した結果のため。
+
+    権限(memory:write:career.*)が未許可の場合は PermissionDenied を
+    静かに握りつぶす(=許可していなくても性格診断機能自体は使える。
+    メモリーへの反映は「許可した人だけの追加価値」という位置づけ)。
+    """
+    gate = get_gate()
+    mem = MemoryStore(get_core_db_path(), gate=gate)
+    profile_id = get_profile_id()
+
+    entries = {
+        "career.personality_summary": result.get("personality_summary") or "",
+        "career.strengths": result.get("strengths") or [],
+        "career.cautions": result.get("cautions") or [],
+        "career.fit_environments": result.get("fit_environments") or "",
+        "career.interview_tips": result.get("interview_tips") or "",
+    }
+    for key, value in entries.items():
+        if not value:
+            continue
+        try:
+            mem.set(profile_id, APP_KEY, key, value, confidence="ai_inferred")
+        except PermissionDenied:
+            return  # 1つ拒否されたら以降も同じ理由で拒否されるだけなので打ち切る
 
 
 class GenerationFailedError(RuntimeError):
@@ -106,6 +155,7 @@ class PersonalityService:
             pa_axis_scores=axis_scores,
             pa_result=result,
         )
+        _sync_personality_to_memory(result)
         favorite_id = add_favorite(
             item_type="personality",
             session_id=session_id,
