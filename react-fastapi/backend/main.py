@@ -56,6 +56,8 @@ from api.routes import personality      # ← 追加（性格診断）
 from api.routes import company_matrix   # ← 追加（企業比較マトリクス）
 from api.routes import career_advisor   # ← 追加（AIキャリアアドバイザー）
 from api.routes import permissions      # ← 追加（データ共有の許可管理）
+
+import service_auth
 from db.database import init_db
 
 logging.basicConfig(level=logging.INFO)
@@ -173,6 +175,13 @@ SSE イベント種別:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """アプリ起動時にDBを初期化し、終了時にクリーンアップする。"""
+    # 単体exe起動(LAUNCH_FASTAPI_ORCHESTRATED=1)以外は、gatewayと同じ
+    # 共有シークレットが設定されていることを最初に確認する。このサービスは
+    # 個別ポート(8000)でホストへ直接公開されうるため、無防備なまま
+    # 起動しないようにするため。
+    if not service_auth.is_standalone_mode():
+        service_auth.get_auth_token()
+
     init_db()
     logger.info("DB initialized")
     try:
@@ -197,7 +206,8 @@ app = FastAPI(
 面接練習・履歴書管理・RAG検索など、個人情報を外部に送信せずに動作します。
 
 ## 認証
-現バージョンは認証なし（ローカル専用）。
+gateway(http://localhost:3000)経由の場合、gatewayが発行したCookieで認証されます。
+単体exe(launch_fastapi.py)として直接起動した場合のみ認証なし（ローカル専用）。
 
 ## LLM プロバイダー
 デフォルトは **Ollama**（ローカル）。`OLLAMA_HOST` 環境変数で接続先を変更できます。
@@ -221,6 +231,9 @@ EventSource または fetch + ReadableStream で受け取ってください。
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# 登録順序が重要(gatewayのmain.pyと同じ理由): 認証を内側、CORSを外側にする。
+app.middleware("http")(service_auth.service_auth_middleware)
 
 # ── CORS ────────────────────────────────────────────────────
 _raw_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:3000")

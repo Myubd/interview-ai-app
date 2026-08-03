@@ -24,6 +24,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
+# ── service_auth対策 ──────────────────────────────────────────
+# main.py に追加したservice_auth middlewareは、LAUNCH_FASTAPI_ORCHESTRATED=1
+# が立っていない限り GATEWAY_AUTH_TOKEN を要求する(fail-closed)。既存の
+# テスト群はgatewayのCookieを持たない前提で書かれているため、テスト実行時は
+# 「単体exeとして起動された」ケースと同じ扱いにして、認証チェックを
+# 素通りさせる。gateway経由の認証そのものの回帰テストは
+# tests/test_service_auth.py で個別に(このデフォルトを一時的に外して)行う。
+os.environ.setdefault("LAUNCH_FASTAPI_ORCHESTRATED", "1")
+
 # ── sys.path ───────────────────────────────────────────────
 BACKEND_ROOT = Path(__file__).resolve().parent.parent
 if str(BACKEND_ROOT) not in sys.path:
