@@ -4,7 +4,13 @@
  * SSE は useMockInterview hook と useSetupProgress hook で直接 fetch する。
  */
 
-const BASE = '/api/v1'
+// 単体exe配布(launch_fastapi.py)ではバックエンド自身がこのフロントエンドを
+// 配信するため相対パス '/api/v1' のままでよいが、gateway統合配布
+// (launch_gateway.py)ではgatewayが '/career' 配下で配信し、archlife-frontend
+// と同じ理由(gatewayの /api/career プロキシのパス書き換えに依存させたくない)
+// でバックエンドへ直接アクセスする。ビルド時に VITE_API_BASE を指定すると
+// 絶対URL(例: http://localhost:8000/api/v1)を焼き込める。
+const BASE = import.meta.env.VITE_API_BASE || '/api/v1'
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
