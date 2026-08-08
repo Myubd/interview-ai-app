@@ -22,6 +22,9 @@ a = Analysis(
         ('utils.py', '.'),
         ('version_info.py', '.'),
         ('version.txt', '.'),
+        # service_auth.py: 2026-08にgateway統合の認証対応で追加されたファイル。
+        # main.py が `import service_auth` するため同梱が必須。
+        ('service_auth.py', '.'),
         ('api', 'api'),
         ('db', 'db'),
         ('llm', 'llm'),
@@ -61,6 +64,7 @@ a = Analysis(
         'anyio', 'anyio._backends._asyncio',
         'ollama',
         'main', 'utils',
+        'service_auth',
         'api', 'api.routes',
         'api.routes.health', 'api.routes.mock_interview',
         'api.routes.sessions', 'api.routes.knowledge_base', 'api.routes.settings',
