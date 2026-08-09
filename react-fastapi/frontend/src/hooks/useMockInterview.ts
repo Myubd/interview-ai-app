@@ -15,6 +15,7 @@
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
 import type { Message, MockEvaluation } from '@/api/client'
+import { BASE } from '@/api/client'
 import {
   apiStartMockInterview,
   apiEvaluateMockInterview,
@@ -232,9 +233,10 @@ export function useMockInterview() {
     abortRef.current = new AbortController()
 
     try {
-      const res = await fetch('/api/v1/mock-interview/answer', {
+      const res = await fetch(`${BASE}/mock-interview/answer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         signal: abortRef.current.signal,
         body: JSON.stringify({
           theme_index: cur.themeIndex,

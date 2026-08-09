@@ -10,11 +10,17 @@
 // と同じ理由(gatewayの /api/career プロキシのパス書き換えに依存させたくない)
 // でバックエンドへ直接アクセスする。ビルド時に VITE_API_BASE を指定すると
 // 絶対URL(例: http://localhost:8000/api/v1)を焼き込める。
-const BASE = import.meta.env.VITE_API_BASE || '/api/v1'
+export const BASE = import.meta.env.VITE_API_BASE || '/api/v1'
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...options.headers },
+    // gateway統合ビルド(VITE_API_BASE=絶対URL)ではこれがクロスオリジン
+    // リクエストになる。gatewayのgw_session Cookieを送るには
+    // credentials: 'include' が必須(既定のfetchはクロスオリジンで
+    // Cookieを送らないため、これが無いとservice_auth_middlewareに
+    // 全リクエストが401で弾かれてしまう)。
+    credentials: 'include',
     ...options,
   })
   if (!res.ok) {
@@ -210,7 +216,9 @@ export function subscribeSetupProgress(
   function connect() {
     if (closed) return
 
-    es = new EventSource(`${BASE}/setup/progress`)
+    // request()と同じ理由(gateway統合ビルドではクロスオリジンになるため、
+    // gw_session Cookieを送るには withCredentials が必須)。
+    es = new EventSource(`${BASE}/setup/progress`, { withCredentials: true })
 
     es.addEventListener('log', (e: MessageEvent) => {
       retryCount = 0  // 接続が確立して届いたらリトライカウントをリセット
@@ -300,7 +308,7 @@ export const apiCreateKnowledgeBaseText = (data: {
   request('/knowledge-bases/text', { method: 'POST', body: JSON.stringify(data) })
 
 export const apiCreateKnowledgeBaseUpload = async (form: FormData): Promise<KnowledgeBase> => {
-  const res = await fetch(`${BASE}/knowledge-bases/upload`, { method: 'POST', body: form })
+  const res = await fetch(`${BASE}/knowledge-bases/upload`, { method: 'POST', body: form, credentials: 'include' })
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }
@@ -664,6 +672,7 @@ export const apiExportMatrixCsv = async (result: MatrixResult): Promise<string> 
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(result),
+    credentials: 'include',
   })
   if (!res.ok) throw new Error(await res.text())
   return res.text()
