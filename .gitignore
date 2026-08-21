@@ -55,3 +55,6 @@ react-fastapi/backend/uploads/
 *.zip
 react-fastapi/backend/.coverage 
 react-fastapi/backend/.coverage 
+
+# 端末固有の匿名IDと鍵導出salt(実行時に自動生成される。共有ディレクトリに保存されるが念のため)
+device_identity.json
